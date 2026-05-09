@@ -5,292 +5,487 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>wysJSON - Nested JSON Table Editor</title>
 <style>
+/* ============================================================
+   wysJSON - Excel-Style Theme (Light)
+   ============================================================ */
 :root {
-    --bg: #1e1e1e;
-    --bg-secondary: #252526;
-    --bg-tertiary: #2d2d30;
-    --border: #3e3e42;
-    --text: #cccccc;
-    --text-muted: #858585;
-    --accent: #0078d4;
-    --accent-hover: #1a8cff;
-    --danger: #e51400;
-    --danger-hover: #ff392e;
-    --success: #388a34;
-    --warning: #cca700;
-    --cell-bg: #2d2d30;
-    --cell-edit-bg: #3c3c3c;
-    --header-bg: #333333;
-    --hover-bg: #3a3a3d;
+    --grid-color: #d4d4d4;
+    --grid-light: #e8e8e8;
+    --cell-bg: #ffffff;
+    --header-bg: #f0f0f0;
+    --header-border: #c0c0c0;
+    --row-num-bg: #f5f5f5;
+    --row-num-text: #666666;
+    --text-color: #333333;
+    --text-muted: #888888;
+    --accent: #2b579a;
+    --accent-light: #e8f0fe;
+    --selection-border: #1a73e8;
+    --selection-bg: #e8f0fe;
+    --hover-bg: #f5f8fc;
+    --nested-border: #2b579a;
+    --nested-bg: #f0f4fa;
+    --danger: #d93025;
+    --success: #1e8e3e;
+    --toolbar-bg: #f8f9fa;
+    --toolbar-border: #dadce0;
+    --btn-bg: #ffffff;
+    --btn-border: #dadce0;
+    --btn-hover: #f1f3f4;
+    --btn-accent: #1a73e8;
+    --btn-accent-hover: #1765cc;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--bg);
-    color: var(--text);
+    font-family: 'Calibri', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    background: #ffffff;
+    color: var(--text-color);
     height: 100vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
-/* ===== Toolbar ===== */
+/* ===== Toolbar (Excel Ribbon Style) ===== */
 .toolbar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--toolbar-bg);
+    border-bottom: 1px solid var(--toolbar-border);
     flex-shrink: 0;
+    min-height: 40px;
 }
 
 .toolbar .title {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
     color: var(--accent);
-    margin-right: 16px;
-    letter-spacing: 1px;
+    margin-right: 10px;
+    letter-spacing: 0.5px;
 }
 
 .toolbar button {
-    padding: 6px 14px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--bg-tertiary);
-    color: var(--text);
+    padding: 5px 12px;
+    border: 1px solid var(--btn-border);
+    border-radius: 3px;
+    background: var(--btn-bg);
+    color: #444;
     cursor: pointer;
     font-size: 12px;
-    transition: all 0.15s;
+    font-family: inherit;
+    transition: background 0.12s;
 }
 
-.toolbar button:hover { background: var(--hover-bg); border-color: #555; }
-.toolbar button.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
-.toolbar button.accent:hover { background: var(--accent-hover); }
-.toolbar button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
-.toolbar button.danger:hover { background: var(--danger-hover); }
+.toolbar button:hover { background: var(--btn-hover); }
+.toolbar button.accent {
+    background: var(--btn-accent);
+    border-color: var(--btn-accent);
+    color: #fff;
+}
+.toolbar button.accent:hover { background: var(--btn-accent-hover); }
+.toolbar button.danger {
+    background: #fff;
+    border-color: var(--danger);
+    color: var(--danger);
+}
+.toolbar button.danger:hover { background: #fce8e6; }
 
-.toolbar .sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+.toolbar .sep {
+    width: 1px;
+    height: 22px;
+    background: var(--toolbar-border);
+    margin: 0 4px;
+}
+
+/* ===== Breadcrumb (Excel Formula Bar Style) ===== */
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 12px;
+    background: #fafafa;
+    border-bottom: 1px solid var(--grid-light);
+    font-size: 11px;
+    flex-shrink: 0;
+    min-height: 24px;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.breadcrumb span {
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 1px 5px;
+    border-radius: 2px;
+}
+.breadcrumb span:hover { color: var(--accent); background: #e8e8e8; }
+.breadcrumb span.current { color: var(--accent); font-weight: 600; }
+.breadcrumb .sep { color: #ccc; cursor: default; margin: 0 1px; }
 
 /* ===== Main Layout ===== */
 .main-content {
     display: flex;
     flex: 1;
     overflow: hidden;
+    background: #f5f5f5;
 }
 
 /* ===== Input Panel ===== */
 .input-panel {
     width: 0;
     overflow: hidden;
-    background: var(--bg-secondary);
-    border-right: 1px solid var(--border);
+    background: #fafafa;
+    border-right: 1px solid var(--toolbar-border);
     display: flex;
     flex-direction: column;
     transition: width 0.25s;
 }
-
 .input-panel.open { width: 400px; }
 
 .input-panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--grid-light);
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     color: var(--text-muted);
+    background: #f5f5f5;
+}
+
+.input-panel-header .apply-btn {
+    padding: 4px 10px;
+    font-size: 11px;
 }
 
 .input-panel textarea {
     flex: 1;
-    background: var(--bg);
-    color: var(--text);
+    background: #ffffff;
+    color: #333;
     border: none;
-    padding: 14px;
+    padding: 12px;
     font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.6;
     resize: none;
     outline: none;
     tab-size: 2;
 }
 
-/* ===== Table View ===== */
+/* ===== Table View (Excel Grid Area) ===== */
 .table-view {
     flex: 1;
     overflow: auto;
-    padding: 16px;
+    padding: 8px;
+    background: #f5f5f5;
 }
 
-/* ===== JSON Table ===== */
+/* ===== Excel-Style Table ===== */
 .json-table-wrapper {
     display: inline-block;
-    min-width: 100%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .json-table {
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: 13px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    overflow: hidden;
+    border-collapse: collapse;
+    font-size: 12px;
 }
 
+/* --- Header Row (Excel Column Headers) --- */
 .json-table th {
     background: var(--header-bg);
-    padding: 8px 14px;
+    color: #444;
+    padding: 5px 10px;
     text-align: left;
     font-weight: 600;
-    font-size: 12px;
-    color: var(--accent);
-    border-bottom: 2px solid var(--border);
+    font-size: 11px;
+    border: 1px solid var(--grid-color);
+    border-bottom: 1px solid var(--header-border);
     white-space: nowrap;
+    -webkit-user-select: none;
     user-select: none;
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 2;
+    min-width: 80px;
+    position: relative;
 }
 
 .json-table th .type-tag {
     font-weight: 400;
-    font-size: 10px;
+    font-size: 9px;
     color: var(--text-muted);
-    margin-left: 6px;
+    margin-left: 5px;
 }
 
-.json-table td {
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    background: var(--cell-bg);
-    vertical-align: top;
-    min-width: 120px;
-    max-width: 400px;
+/* Column resize handle */
+.json-table th .col-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    z-index: 3;
+}
+.json-table th .col-resizer:hover,
+.json-table th .col-resizer.resizing {
+    background: var(--selection-border);
+    opacity: 0.6;
 }
 
-.json-table td:last-child { border-right: none; }
-.json-table tr:last-child td { border-bottom: none; }
-
-.json-table tr:hover td { background: var(--hover-bg); }
-
-/* ===== Cell Types ===== */
-.cell-value {
-    cursor: text;
-    padding: 3px 6px;
-    border-radius: 3px;
-    min-height: 22px;
+/* Nested toggle in column header */
+.json-table th .nested-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--accent);
+    background: var(--nested-bg);
+    border: 1px solid #c8d8f0;
+    margin-right: 4px;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.json-table th .nested-toggle:hover {
+    background: #dce8f8;
+    border-color: var(--accent);
+}
+.json-table th .nested-toggle .arrow {
     display: inline-block;
-    width: 100%;
-    word-break: break-all;
+    font-size: 8px;
+    transition: transform .2s;
+    line-height: 1;
+}
+.json-table th .nested-toggle.expanded .arrow { transform: rotate(90deg); }
+.json-table th .nested-toggle .summary {
+    color: var(--text-muted);
+    font-size: 9px;
 }
 
-.cell-value:hover { background: var(--cell-edit-bg); }
-.cell-value:focus {
-    outline: 2px solid var(--accent);
-    background: var(--cell-edit-bg);
+/* Nested badge (in cell, non-interactive) */
+.nested-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    color: var(--text-muted);
+    background: var(--row-num-bg);
+    border: 1px solid var(--grid-light);
+}
+.nested-content {
+    margin-top: 4px;
+    border-left: 3px solid var(--nested-border);
+    padding-left: 8px;
 }
 
-.cell-value.string { color: #ce9178; }
-.cell-value.number { color: #b5cea8; }
-.cell-value.boolean { color: #569cd6; }
-.cell-value.null { color: #858585; font-style: italic; }
+/* Header editing mode */
+.json-table th.header-editing {
+    padding: 4px 9px;
+    outline: 2px solid var(--selection-border);
+    outline-offset: -2px;
+    background: #fff;
+}
+.json-table th.header-editing .type-tag,
+.json-table th.header-editing .col-resizer,
+.json-table th.header-editing .nested-toggle { display: none; }
 
-.cell-nested {
+/* Row number header */
+.json-table th.row-num-header {
+    background: var(--row-num-bg);
+    color: var(--row-num-text);
+    text-align: center;
+    width: 46px;
+    min-width: 46px;
+    border-bottom: 1px solid var(--header-border);
+}
+
+/* --- Data Cells --- */
+.json-table td {
+    padding: 3px 8px;
+    border: 1px solid var(--grid-light);
+    background: var(--cell-bg);
+    vertical-align: middle;
+    min-width: 80px;
+    height: 28px;
+    transition: background 0.05s;
+}
+
+.json-table td.cell-value-wrapper,
+.json-table td.cell-nested {
     position: relative;
 }
 
-.nested-toggle {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-    color: var(--accent);
-    background: rgba(0,120,212,0.1);
-    border: 1px solid rgba(0,120,212,0.3);
-    transition: all 0.15s;
-    white-space: nowrap;
+.json-table td.cell-value-wrapper {
+    padding: 0;
 }
 
-.nested-toggle:hover {
-    background: rgba(0,120,212,0.2);
-    border-color: var(--accent);
+.json-table td.cell-value-wrapper.is-selected,
+.json-table td.cell-nested.is-selected,
+.json-table td.cell-value-wrapper.is-editing,
+.json-table td.cell-nested.is-editing {
+    background: #ffffff;
+    box-shadow: inset 0 0 0 2px var(--selection-border);
 }
 
-.nested-toggle .arrow {
-    transition: transform 0.2s;
+.json-table td.is-range-selected:not(.is-selected):not(.is-editing) {
+    background: var(--selection-bg);
+}
+
+.json-table td.is-selected.is-range-selected:not(.is-editing) {
+    box-shadow: none;
+}
+
+.json-table td.cell-value-wrapper::before,
+.json-table td.cell-nested::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-style: solid;
+    border-color: var(--selection-border);
+    border-width: 0;
+    z-index: 2;
+}
+
+.json-table td.range-edge-top::before { border-top-width: 2px; }
+.json-table td.range-edge-right::before { border-right-width: 2px; }
+.json-table td.range-edge-bottom::before { border-bottom-width: 2px; }
+.json-table td.range-edge-left::before { border-left-width: 2px; }
+
+.selection-fill-handle {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    right: -4px;
+    bottom: -4px;
+    background: var(--selection-border);
+    border: 1px solid #ffffff;
+    z-index: 4;
+    cursor: crosshair;
+}
+
+.json-table td.is-hover-target:not(.is-selected):not(.is-editing) {
+    background: var(--hover-bg);
+}
+
+/* Row number cell */
+.json-table td.row-num {
+    background: var(--row-num-bg);
+    color: var(--row-num-text);
+    text-align: center;
+    font-size: 10px;
+    width: 46px;
+    min-width: 46px;
+    border-right: 1px solid var(--header-border);
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* ===== Cell Value (Editable) ===== */
+.cell-value {
+    display: block;
+    width: 100%;
+    min-height: 26px;
+    line-height: 20px;
+    padding: 3px 8px;
+    border-radius: 1px;
+    outline: none;
+    cursor: cell;
+    word-break: break-all;
+    color: var(--text-color);
+    white-space: pre-wrap;
+}
+
+.cell-value:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.cell-value.null { color: #aaa; font-style: italic; }
+
+.cell-value[contenteditable='false'] {
+    cursor: default;
+}
+
+.cell-value[contenteditable='plaintext-only'] {
+    cursor: text;
+}
+
+/* ===== Nested Object/Array Cell ===== */
+.cell-nested {
+    position: relative;
+    min-width: 160px;
+}
+
+.cell-nested.is-collapsed {
+    overflow: hidden;
+}
+
+.nested-badge {
     display: inline-block;
     font-size: 10px;
-}
-.nested-toggle.expanded .arrow { transform: rotate(90deg); }
-
-.nested-toggle .summary {
+    padding: 2px 6px;
+    border-radius: 2px;
     color: var(--text-muted);
-    font-size: 11px;
+    background: var(--row-num-bg);
+    border: 1px solid var(--grid-light);
+}
+
+.nested-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    width: 100%;
+}
+
+.nested-summary-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-color);
 }
 
 .nested-content {
     margin-top: 4px;
+    border-left: 3px solid var(--nested-border);
     padding-left: 8px;
-    border-left: 2px solid var(--accent);
 }
 
-/* ===== Row Actions ===== */
-.row-actions {
-    display: flex;
-    gap: 2px;
-    align-items: center;
-}
-
-.row-actions button {
-    width: 24px;
-    height: 24px;
-    border: none;
-    border-radius: 3px;
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-}
-
-.row-actions button:hover {
-    background: var(--hover-bg);
-    color: var(--text);
-}
-
-.row-actions button.del:hover { color: var(--danger); }
-
-/* ===== Add Row ===== */
+/* ===== Add Row Button ===== */
 .add-row-btn {
-    padding: 6px 14px;
-    border: 1px dashed var(--border);
-    border-radius: 4px;
-    background: transparent;
+    display: block;
+    padding: 4px 10px;
+    border: 1px dashed #bbb;
+    border-radius: 2px;
+    background: #fafafa;
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
+    font-family: inherit;
     width: 100%;
-    transition: all 0.15s;
-    margin-top: 4px;
+    margin-top: 2px;
+    transition: all 0.12s;
 }
-
 .add-row-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(0,120,212,0.05);
+    border-color: var(--btn-accent);
+    color: var(--btn-accent);
+    background: var(--accent-light);
 }
 
 /* ===== Empty State ===== */
@@ -301,83 +496,65 @@ body {
     justify-content: center;
     height: 100%;
     color: var(--text-muted);
+    background: #fff;
 }
+.empty-state .icon { font-size: 52px; margin-bottom: 14px; }
+.empty-state h3 { font-size: 18px; margin-bottom: 6px; color: #555; font-weight: 600; }
+.empty-state p { font-size: 13px; color: #999; }
 
-.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
-.empty-state h3 { font-size: 18px; margin-bottom: 8px; }
-.empty-state p { font-size: 13px; }
-
-/* ===== Status Bar ===== */
+/* ===== Status Bar (Excel Style) ===== */
 .status-bar {
-    padding: 6px 14px;
+    padding: 4px 14px;
     background: var(--accent);
     color: #fff;
-    font-size: 12px;
+    font-size: 11px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 16px;
+    min-height: 26px;
 }
-
 .status-bar.error { background: var(--danger); }
 
-/* ===== Breadcrumb ===== */
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 8px 16px;
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    flex-shrink: 0;
-    overflow-x: auto;
-    white-space: nowrap;
-}
-
-.breadcrumb span {
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 3px;
-}
-
-.breadcrumb span:hover { color: var(--text); background: var(--hover-bg); }
-.breadcrumb span.current { color: var(--accent); font-weight: 600; }
-.breadcrumb .sep { color: var(--text-muted); cursor: default; }
-
-/* ===== Scrollbar ===== */
+/* ===== Scrollbar (Subtle) ===== */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #555; }
+::-webkit-scrollbar-track { background: #f5f5f5; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #aaa; }
+::-webkit-scrollbar-corner { background: #f5f5f5; }
 
-/* ===== Context Menu ===== */
+/* ===== Context Menu (Excel Style) ===== */
 .context-menu {
     position: fixed;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     z-index: 1000;
     min-width: 180px;
-    padding: 4px 0;
+    padding: 2px 0;
     display: none;
 }
-
 .context-menu.show { display: block; }
 
 .context-menu .menu-item {
-    padding: 8px 16px;
+    padding: 6px 14px;
     cursor: pointer;
     font-size: 12px;
     display: flex;
     align-items: center;
     gap: 8px;
+    color: #444;
 }
-
-.context-menu .menu-item:hover { background: var(--accent); color: #fff; }
-.context-menu .divider { height: 1px; background: var(--border); margin: 4px 0; }
+.context-menu .menu-item:hover {
+    background: var(--accent-light);
+    color: #000;
+}
+.context-menu .divider {
+    height: 1px;
+    background: #e0e0e0;
+    margin: 2px 0;
+}
 </style>
 </head>
 <body>
@@ -393,6 +570,9 @@ body {
     <button id="btnCopy" title="Copy JSON">📋 复制JSON</button>
     <button id="btnExport" class="accent" title="Export JSON">⬇ 导出</button>
     <span class="sep"></span>
+    <button id="btnUndo" title="撤销 (Ctrl+Z)">↩ 撤销</button>
+    <button id="btnRedo" title="重做 (Ctrl+Y)">↪ 重做</button>
+    <span class="sep"></span>
     <button id="btnSample" title="Load Sample Data">🧪 示例数据</button>
 </div>
 
@@ -407,7 +587,7 @@ body {
     <div class="input-panel" id="inputPanel">
         <div class="input-panel-header">
             <span>📝 JSON 输入</span>
-            <button id="btnApply" class="accent" style="padding:4px 10px;font-size:11px;">应用</button>
+            <button id="btnApply" class="accent apply-btn">应用</button>
         </div>
         <textarea id="jsonInput" placeholder='粘贴或编辑 JSON 数据...&#10;&#10;例如:&#10;{"name": "张三", "age": 30, "address": {"city": "北京", "street": "长安街"}}'></textarea>
     </div>
@@ -439,11 +619,53 @@ body {
 const App = {
     data: null,
     nestedStates: {}, // track expand/collapse state by path
+    columnStates: {}, // track header-level expand/collapse state by path
     selectedCell: null,
+    editingCell: null,
+    hoveredCell: null,
+    selectionAnchorCell: null,
+    selectedRangeCells: [],
+    isMouseSelecting: false,
+    mouseSelectionMoved: false,
+    suppressNextClickSelection: false,
+    isFillDragging: false,
+    fillSourceMatrix: null,
+    fillSourceRect: null,
     
+    // --- Undo/Redo ---
+    undoStack: [],
+    redoStack: [],
+    maxUndo: 50,
+
     init() {
         this.bindEvents();
         this.setStatus('就绪');
+    },
+
+    // Push current data state for undo
+    pushUndo() {
+        if (this.data === null) return;
+        this.undoStack.push(JSON.parse(JSON.stringify(this.data)));
+        if (this.undoStack.length > this.maxUndo) this.undoStack.shift();
+        this.redoStack = [];
+    },
+
+    undo() {
+        if (this.undoStack.length === 0) return this.setStatus('没有可撤销的操作');
+        if (this.data !== null) this.redoStack.push(JSON.parse(JSON.stringify(this.data)));
+        this.data = this.undoStack.pop();
+        this.nestedStates = {};
+        this.render();
+        this.setStatus('已撤销');
+    },
+
+    redo() {
+        if (this.redoStack.length === 0) return this.setStatus('没有可重做的操作');
+        if (this.data !== null) this.undoStack.push(JSON.parse(JSON.stringify(this.data)));
+        this.data = this.redoStack.pop();
+        this.nestedStates = {};
+        this.render();
+        this.setStatus('已重做');
     },
 
     bindEvents() {
@@ -454,10 +676,28 @@ const App = {
         document.getElementById('btnCopy').addEventListener('click', () => this.copyJSON());
         document.getElementById('btnExport').addEventListener('click', () => this.exportJSON());
         document.getElementById('btnSample').addEventListener('click', () => this.loadSample());
+        if (document.getElementById('btnUndo')) {
+            document.getElementById('btnUndo').addEventListener('click', () => this.undo());
+            document.getElementById('btnRedo').addEventListener('click', () => this.redo());
+        }
         document.getElementById('tableView').addEventListener('click', (e) => this.handleTableClick(e));
+        document.getElementById('tableView').addEventListener('dblclick', (e) => this.handleTableDoubleClick(e));
+        document.getElementById('tableView').addEventListener('mousedown', (e) => this.handleTableMouseDown(e));
         document.getElementById('tableView').addEventListener('input', (e) => this.handleCellEdit(e));
         document.getElementById('tableView').addEventListener('keydown', (e) => this.handleKeydown(e));
+        document.getElementById('tableView').addEventListener('mouseover', (e) => this.handleTableHover(e));
+        document.getElementById('tableView').addEventListener('paste', (e) => this.handlePaste(e));
+        document.getElementById('tableView').addEventListener('mouseleave', () => this.setHoveredCell(null));
+        document.addEventListener('copy', (e) => this.handleCopy(e));
+        document.addEventListener('cut', (e) => this.handleCut(e));
+        document.addEventListener('mouseup', () => this.finishMouseSelection());
         document.addEventListener('click', () => this.hideContextMenu());
+        
+        // Global undo/redo hotkeys
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); this.redo(); }
+        });
     },
 
     // ===== Status =====
@@ -466,6 +706,64 @@ const App = {
         bar.textContent = (isError ? '❌ ' : '✅ ') + msg;
         bar.className = 'status-bar' + (isError ? ' error' : '');
     },
+
+    // ===== Undo/Redo =====
+    undoStack: [],
+    redoStack: [],
+    maxUndo: 50,
+
+    pushUndo() {
+        if (this.data === null) return;
+        this.undoStack.push(JSON.parse(JSON.stringify(this.data)));
+        if (this.undoStack.length > this.maxUndo) this.undoStack.shift();
+        this.redoStack = [];
+    },
+
+    undo() {
+        if (this.undoStack.length === 0) return this.setStatus('没有可撤销的操作');
+        if (this.data !== null) this.redoStack.push(JSON.parse(JSON.stringify(this.data)));
+        this.data = this.undoStack.pop();
+        this.nestedStates = {};
+        this.columnStates = {};
+        this.selectedCell = null;
+        this.editingCell = null;
+        this.hoveredCell = null;
+        this.selectionAnchorCell = null;
+        this.selectedRangeCells = [];
+        this.isMouseSelecting = false;
+        this.mouseSelectionMoved = false;
+        this.suppressNextClickSelection = false;
+        this.isFillDragging = false;
+        this.fillSourceMatrix = null;
+        this.fillSourceRect = null;
+        this.render();
+        this.syncTextarea();
+        this.setStatus('已撤销');
+    },
+
+    redo() {
+        if (this.redoStack.length === 0) return this.setStatus('没有可重做的操作');
+        if (this.data !== null) this.undoStack.push(JSON.parse(JSON.stringify(this.data)));
+        this.data = this.redoStack.pop();
+        this.nestedStates = {};
+        this.columnStates = {};
+        this.selectedCell = null;
+        this.editingCell = null;
+        this.hoveredCell = null;
+        this.selectionAnchorCell = null;
+        this.selectedRangeCells = [];
+        this.isMouseSelecting = false;
+        this.mouseSelectionMoved = false;
+        this.suppressNextClickSelection = false;
+        this.isFillDragging = false;
+        this.fillSourceMatrix = null;
+        this.fillSourceRect = null;
+        this.render();
+        this.syncTextarea();
+        this.setStatus('已重做');
+    },
+
+    syncTextarea() { if (this.data) document.getElementById('jsonInput').value = JSON.stringify(this.data, null, 2); },
 
     // ===== Input Panel =====
     toggleInput() {
@@ -481,6 +779,7 @@ const App = {
         try {
             this.data = JSON.parse(raw);
             this.nestedStates = {};
+            this.columnStates = {};
             this.render();
             this.setStatus('JSON 已加载');
         } catch(e) {
@@ -566,6 +865,7 @@ const App = {
         this.data = sample;
         document.getElementById('jsonInput').value = JSON.stringify(sample, null, 2);
         this.nestedStates = {};
+        this.columnStates = {};
         this.render();
         this.setStatus('示例数据已加载');
     },
@@ -576,19 +876,39 @@ const App = {
         bc.innerHTML = '<span class="current" data-path="">📄 root</span>';
     },
 
+    getColumnStateKey(path, key) {
+        const fullPath = key !== undefined
+            ? (path ? `${path}.${key}` : key)
+            : path;
+        return fullPath.replace(/\[\d+\](?=(\.[^.]+)$)/, '').replace(/^\./, '');
+    },
+
     // ===== Rendering =====
     render() {
         const container = document.getElementById('tableView');
         const empty = document.getElementById('emptyState');
+        this.selectedCell = null;
+        this.editingCell = null;
+        this.hoveredCell = null;
+        this.selectionAnchorCell = null;
+        this.selectedRangeCells = [];
+        this.isMouseSelecting = false;
+        this.mouseSelectionMoved = false;
+        this.suppressNextClickSelection = false;
+        this.isFillDragging = false;
+        this.fillSourceMatrix = null;
+        this.fillSourceRect = null;
         
         if (this.data === null || this.data === undefined) {
             container.innerHTML = '';
-            container.appendChild(empty);
-            empty.style.display = 'flex';
+            if (empty) {
+                container.appendChild(empty);
+                empty.style.display = 'flex';
+            }
             return;
         }
         
-        empty.style.display = 'none';
+        if (empty) empty.style.display = 'none';
         container.innerHTML = '';
         
         const wrapper = document.createElement('div');
@@ -641,27 +961,57 @@ const App = {
         // Row number column for arrays
         if (isArray) {
             const th = document.createElement('th');
-            th.textContent = '#';
-            th.style.width = '48px';
-            th.style.textAlign = 'center';
+            th.className = 'row-num-header';
             headerRow.appendChild(th);
         }
         
         for (const key of allKeys) {
             const th = document.createElement('th');
-            th.textContent = key;
             
-            // Determine type of first non-null value for this column
-            const sampleVal = rows.find(r => r && r[key] !== undefined) ?? null;
-            const sample = sampleVal ? sampleVal[key] : null;
-            if (sample !== null && sample !== undefined) {
+            // Check if column has any nested values
+            const sample = rows.find(r => r && typeof r === 'object' && !Array.isArray(r) && r[key] !== undefined);
+            const sampleVal = sample ? sample[key] : undefined;
+            const isNested = sampleVal !== null && sampleVal !== undefined && typeof sampleVal === 'object';
+            const colStateKey = this.getColumnStateKey(path, key);
+            
+            // Add nested toggle to column header
+            if (isNested) {
+                const toggle = document.createElement('span');
+                toggle.className = 'nested-toggle';
+                const isArray = Array.isArray(sampleVal);
+                const isExpanded = this.columnStates[colStateKey] !== false;
+                if (isExpanded) toggle.classList.add('expanded');
+                toggle.innerHTML = `<span class="arrow">▶</span><span class="summary">${isArray ? `[${sampleVal.length}]` : `{${Object.keys(sampleVal).length}}`}</span>`;
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.columnStates[colStateKey] = this.columnStates[colStateKey] === false;
+                    this.render();
+                });
+                th.appendChild(toggle);
+            }
+            
+            th.appendChild(document.createTextNode(key));
+            
+            // Type tag
+            if (sampleVal !== null && sampleVal !== undefined && !(typeof sampleVal === 'object')) {
                 const tag = document.createElement('span');
                 tag.className = 'type-tag';
-                tag.textContent = Array.isArray(sample) ? '[array]' : 
-                                  typeof sample === 'object' ? '{obj}' : 
-                                  typeof sample;
+                tag.textContent = typeof sampleVal;
                 th.appendChild(tag);
             }
+            
+            // Resize handle
+            const resizer = document.createElement('div');
+            resizer.className = 'col-resizer';
+            th.appendChild(resizer);
+            resizer.addEventListener('mousedown', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                const startX = e.clientX, startW = th.offsetWidth;
+                const move = (ev) => { const w = Math.max(40, startW + ev.clientX - startX); th.style.width = w + 'px'; th.style.minWidth = w + 'px'; };
+                const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); document.body.style.cursor = ''; document.body.style.userSelect = ''; };
+                document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+                document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+            });
             
             headerRow.appendChild(th);
         }
@@ -685,40 +1035,22 @@ const App = {
             const tr = document.createElement('tr');
             tr.setAttribute('data-path', rowPath);
             
-            // Row number
+            // Row number (Excel-style)
             if (isArray) {
                 const td = document.createElement('td');
-                td.style.textAlign = 'center';
-                td.style.color = 'var(--text-muted)';
-                td.style.fontSize = '11px';
-                td.style.padding = '8px 10px';
-                
-                const rowActions = document.createElement('div');
-                rowActions.className = 'row-actions';
-                rowActions.style.justifyContent = 'center';
-                
-                const delBtn = document.createElement('button');
-                delBtn.className = 'del';
-                delBtn.innerHTML = '✕';
-                delBtn.title = '删除此行';
-                delBtn.addEventListener('click', (e) => {
+                td.className = 'row-num';
+                td.textContent = i + 1;
+                td.title = '点击删除此行';
+                td.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    this.deleteRow(path, i);
+                    if (confirm('删除第 ' + (i+1) + ' 行？')) this.deleteRow(path, i);
                 });
-                
-                rowActions.appendChild(delBtn);
-                
-                const numSpan = document.createElement('span');
-                numSpan.textContent = i;
-                numSpan.style.marginRight = '4px';
-                
-                td.appendChild(rowActions);
-                td.appendChild(document.createTextNode(' '));
                 tr.appendChild(td);
             }
             
             for (const key of allKeys) {
                 const td = document.createElement('td');
+                td.setAttribute('data-col', key);
                 const val = row && typeof row === 'object' && !Array.isArray(row) ? row[key] : undefined;
                 const cellPath = rowPath ? `${rowPath}.${key}` : key;
                 
@@ -793,7 +1125,7 @@ const App = {
                 tdIdx.style.textAlign = 'center';
                 tdIdx.style.color = 'var(--text-muted)';
                 tdIdx.style.fontSize = '11px';
-                tdIdx.textContent = i;
+                tdIdx.textContent = i + 1;
                 tr.appendChild(tdIdx);
                 
                 const tdVal = document.createElement('td');
@@ -827,75 +1159,65 @@ const App = {
     renderCell(td, val, path, key) {
         if (val === null || val === undefined) {
             td.classList.add('cell-value-wrapper');
+            td.setAttribute('tabindex', '-1');
+            td.setAttribute('data-path', path);
+            td.setAttribute('data-editable', 'true');
             const span = document.createElement('span');
             span.className = 'cell-value null';
             span.setAttribute('data-path', path);
             span.setAttribute('data-key', key);
             span.setAttribute('data-type', 'null');
-            span.setAttribute('contenteditable', 'true');
+            span.setAttribute('contenteditable', 'false');
+            span.setAttribute('spellcheck', 'false');
             span.textContent = 'null';
-            span.addEventListener('blur', (e) => this.commitEdit(e, path, 'null'));
             td.appendChild(span);
         } else if (typeof val === 'object') {
-            // Nested object or array
+            // Nested object/array — controlled by column header toggle
             td.classList.add('cell-nested');
-            
-            const isArray = Array.isArray(val);
-            const nestedPath = path;
-            const collapsedKey = path; // use path as unique key for state
-            
-            const header = document.createElement('div');
-            header.className = 'nested-toggle';
-            
-            // Check if expanded
-            const isExpanded = this.nestedStates[collapsedKey] !== false;
-            if (isExpanded) header.classList.add('expanded');
-            
-            header.innerHTML = `
-                <span class="arrow">▶</span>
-                <span>${isArray ? `[${val.length}项]` : `{${Object.keys(val).length}键}`}</span>
-                <span class="summary">${this.summarize(val)}</span>
-            `;
-            
-            const nestedContainer = document.createElement('div');
-            nestedContainer.className = 'nested-content';
-            nestedContainer.style.display = isExpanded ? 'block' : 'none';
-            
-            // Create nested table
+            td.setAttribute('tabindex', '-1');
+            td.setAttribute('data-path', path);
+            td.setAttribute('data-editable', 'false');
+            const collKey = this.getColumnStateKey(path);
+            const isExpanded = this.columnStates[collKey] !== false;
+
             if (isExpanded) {
-                const nestedTable = this.createTable(val, nestedPath);
-                nestedContainer.appendChild(nestedTable);
+                const nestedContainer = document.createElement('div');
+                nestedContainer.className = 'nested-content';
+                nestedContainer.appendChild(this.createTable(val, path));
+                td.appendChild(nestedContainer);
+            } else {
+                td.classList.add('is-collapsed');
+
+                const preview = document.createElement('div');
+                preview.className = 'nested-preview';
+
+                const badge = document.createElement('span');
+                badge.className = 'nested-badge';
+                badge.textContent = Array.isArray(val) ? `[${val.length}]` : `{${Object.keys(val).length}}`;
+                preview.appendChild(badge);
+
+                const summary = document.createElement('span');
+                summary.className = 'nested-summary-text';
+                summary.textContent = this.summarize(val);
+                summary.title = summary.textContent;
+                preview.appendChild(summary);
+
+                td.appendChild(preview);
             }
-            
-            header.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const currentlyExpanded = this.nestedStates[collapsedKey] !== false;
-                if (currentlyExpanded) {
-                    this.nestedStates[collapsedKey] = false;
-                    header.classList.remove('expanded');
-                    nestedContainer.style.display = 'none';
-                    nestedContainer.innerHTML = '';
-                } else {
-                    this.nestedStates[collapsedKey] = true;
-                    header.classList.add('expanded');
-                    nestedContainer.style.display = 'block';
-                    const nestedTable = this.createTable(val, nestedPath);
-                    nestedContainer.innerHTML = '';
-                    nestedContainer.appendChild(nestedTable);
-                }
-            });
-            
-            td.appendChild(header);
-            td.appendChild(nestedContainer);
         } else {
             // Primitive value
+            td.classList.add('cell-value-wrapper');
+            td.setAttribute('tabindex', '-1');
+            td.setAttribute('data-path', path);
+            td.setAttribute('data-editable', 'true');
             const span = document.createElement('span');
             const type = typeof val;
             span.className = `cell-value ${type}`;
             span.setAttribute('data-path', path);
             span.setAttribute('data-key', key);
             span.setAttribute('data-type', type);
-            span.setAttribute('contenteditable', 'true');
+            span.setAttribute('contenteditable', 'false');
+            span.setAttribute('spellcheck', 'false');
             
             if (type === 'string') {
                 span.textContent = val;
@@ -905,76 +1227,549 @@ const App = {
                 span.textContent = String(val);
             }
             
-            span.addEventListener('blur', (e) => this.commitEdit(e, path, type));
-            span.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    span.blur();
-                }
-            });
-            
             td.appendChild(span);
         }
     },
 
     summarize(val) {
-        if (Array.isArray(val)) {
-            if (val.length === 0) return '[]';
-            const first = val[0];
-            if (typeof first === 'object' && first !== null) {
-                return `[{...}, ...]`;
+        if (Array.isArray(val) || (typeof val === 'object' && val !== null)) {
+            try {
+                return JSON.stringify(val);
+            } catch (error) {
+                return Array.isArray(val) ? '[]' : '{}';
             }
-            return JSON.stringify(val).substring(0, 30) + (JSON.stringify(val).length > 30 ? '...' : '');
-        }
-        if (typeof val === 'object' && val !== null) {
-            const keys = Object.keys(val);
-            if (keys.length === 0) return '{}';
-            return '{' + keys.slice(0, 2).join(', ') + (keys.length > 2 ? ', ...' : '') + '}';
         }
         return '';
     },
 
     // ===== Editing =====
     handleCellEdit(e) {
-        // Cell edit is handled by blur event
+        const cellValue = e.target.closest('.cell-value');
+        if (!cellValue) return;
+        const td = cellValue.closest('td.cell-value-wrapper');
+        if (td) this.selectCell(td);
     },
 
-    commitEdit(e, path, oldType) {
-        const span = e.target;
-        const raw = span.textContent.trim();
-        const newVal = this.parseValue(raw);
-        
-        if (newVal.error) {
-            // Restore old value on parse error
-            this.setStatus('值格式错误: ' + newVal.error, true);
-            this.render(); // Re-render to restore
+    activateEditable(span, enabled) {
+        span.setAttribute('contenteditable', enabled ? 'plaintext-only' : 'false');
+    },
+
+    isSelectableCell(td) {
+        return !!td && td.matches('td.cell-value-wrapper, td.cell-nested');
+    },
+
+    isEditableCell(td) {
+        return !!td && td.matches('td.cell-value-wrapper[data-editable="true"]');
+    },
+
+    getSelectableCellFromTarget(target) {
+        return target?.closest?.('td.cell-value-wrapper, td.cell-nested') || null;
+    },
+
+    setHoveredCell(td) {
+        if (this.hoveredCell === td) return;
+        if (this.hoveredCell) this.hoveredCell.classList.remove('is-hover-target');
+        this.hoveredCell = this.isSelectableCell(td) ? td : null;
+        if (this.hoveredCell && this.hoveredCell !== this.selectedCell && this.hoveredCell !== this.editingCell && !this.hoveredCell.classList.contains('is-range-selected')) {
+            this.hoveredCell.classList.add('is-hover-target');
+        }
+    },
+
+    clearRangeSelection() {
+        for (const cell of this.selectedRangeCells) {
+            if (!cell) continue;
+            cell.classList.remove('is-range-selected', 'range-edge-top', 'range-edge-right', 'range-edge-bottom', 'range-edge-left');
+            const handle = cell.querySelector(':scope > .selection-fill-handle');
+            if (handle) handle.remove();
+        }
+        this.selectedRangeCells = [];
+    },
+
+    updateRangeVisuals() {
+        const cells = this.getSelectedCells();
+        if (cells.length === 0) return;
+
+        for (const cell of cells) {
+            cell.classList.remove('range-edge-top', 'range-edge-right', 'range-edge-bottom', 'range-edge-left');
+            const handle = cell.querySelector(':scope > .selection-fill-handle');
+            if (handle) handle.remove();
+        }
+
+        const coordinates = cells.map((cell) => ({ cell, ...this.getCellCoordinates(cell) })).filter((entry) => entry.table);
+        if (coordinates.length === 0) return;
+
+        const rowStart = Math.min(...coordinates.map((entry) => entry.rowIndex));
+        const rowEnd = Math.max(...coordinates.map((entry) => entry.rowIndex));
+        const colStart = Math.min(...coordinates.map((entry) => entry.colIndex));
+        const colEnd = Math.max(...coordinates.map((entry) => entry.colIndex));
+
+        for (const entry of coordinates) {
+            entry.cell.classList.add('is-range-selected');
+            if (entry.rowIndex === rowStart) entry.cell.classList.add('range-edge-top');
+            if (entry.rowIndex === rowEnd) entry.cell.classList.add('range-edge-bottom');
+            if (entry.colIndex === colStart) entry.cell.classList.add('range-edge-left');
+            if (entry.colIndex === colEnd) entry.cell.classList.add('range-edge-right');
+        }
+
+        const handleCell = coordinates.find((entry) => entry.rowIndex === rowEnd && entry.colIndex === colEnd)?.cell;
+        if (handleCell) {
+            const handle = document.createElement('div');
+            handle.className = 'selection-fill-handle';
+            handle.title = '拖拽填充';
+            handleCell.appendChild(handle);
+        }
+    },
+
+    selectCell(td, options = {}) {
+        if (!this.isSelectableCell(td)) return;
+        if (!options.keepRange) {
+            this.clearRangeSelection();
+        }
+        if (this.selectedCell && this.selectedCell !== td) {
+            this.selectedCell.classList.remove('is-selected');
+        }
+        this.selectedCell = td;
+        if (!options.keepAnchor) {
+            this.selectionAnchorCell = td;
+        }
+        td.classList.remove('is-hover-target');
+        td.classList.add('is-selected');
+        if (options.keepRange) {
+            this.updateRangeVisuals();
+        }
+        td.focus({ preventScroll: true });
+    },
+
+    clearSelection() {
+        this.clearRangeSelection();
+        if (this.selectedCell) this.selectedCell.classList.remove('is-selected');
+        this.selectedCell = null;
+        this.selectionAnchorCell = null;
+    },
+
+    getCellCoordinates(td) {
+        if (!this.isSelectableCell(td)) return null;
+        const table = td.closest('table.json-table');
+        const tr = td.closest('tr');
+        if (!table || !tr || !table.tBodies[0]) return null;
+
+        const rows = Array.from(table.tBodies[0].rows);
+        const rowIndex = rows.indexOf(tr);
+        if (rowIndex === -1) return null;
+
+        const cells = this.getRowSelectableCells(tr);
+        const colIndex = cells.indexOf(td);
+        if (colIndex === -1) return null;
+
+        return { table, rows, rowIndex, colIndex };
+    },
+
+    getCellByCoordinates(table, rowIndex, colIndex) {
+        if (!table?.tBodies?.[0]) return null;
+        const row = table.tBodies[0].rows[rowIndex];
+        if (!row) return null;
+        const cells = this.getRowSelectableCells(row);
+        return cells[colIndex] || null;
+    },
+
+    selectRange(anchorCell, endCell) {
+        if (!this.isSelectableCell(anchorCell) || !this.isSelectableCell(endCell)) return;
+        const anchor = this.getCellCoordinates(anchorCell);
+        const end = this.getCellCoordinates(endCell);
+        if (!anchor || !end || anchor.table !== end.table) {
+            this.selectCell(endCell);
             return;
         }
-        
+
+        this.clearRangeSelection();
+
+        const rowStart = Math.min(anchor.rowIndex, end.rowIndex);
+        const rowEnd = Math.max(anchor.rowIndex, end.rowIndex);
+        const colStart = Math.min(anchor.colIndex, end.colIndex);
+        const colEnd = Math.max(anchor.colIndex, end.colIndex);
+        const rangeCells = [];
+
+        for (let row = rowStart; row <= rowEnd; row++) {
+            for (let col = colStart; col <= colEnd; col++) {
+                const cell = this.getCellByCoordinates(anchor.table, row, col);
+                if (!cell) continue;
+                rangeCells.push(cell);
+                cell.classList.remove('is-hover-target');
+            }
+        }
+
+        this.selectedRangeCells = rangeCells;
+        this.selectionAnchorCell = anchorCell;
+        this.selectCell(endCell, { keepRange: true, keepAnchor: true });
+        this.updateRangeVisuals();
+    },
+
+    getSelectedCells() {
+        if (this.selectedRangeCells.length > 0) return this.selectedRangeCells;
+        return this.selectedCell ? [this.selectedCell] : [];
+    },
+
+    hasRangeSelection() {
+        return this.selectedRangeCells.length > 1;
+    },
+
+    placeCaretAtEnd(element) {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    },
+
+    placeCaretFromPoint(element, clientX, clientY) {
+        let range = null;
+
+        if (document.caretPositionFromPoint) {
+            const position = document.caretPositionFromPoint(clientX, clientY);
+            if (position) {
+                range = document.createRange();
+                range.setStart(position.offsetNode, position.offset);
+                range.collapse(true);
+            }
+        } else if (document.caretRangeFromPoint) {
+            range = document.caretRangeFromPoint(clientX, clientY);
+        }
+
+        if (!range || !element.contains(range.startContainer)) {
+            this.placeCaretAtEnd(element);
+            return;
+        }
+
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    },
+
+    selectionInsideElement(element) {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return false;
+        const range = selection.getRangeAt(0);
+        return element.contains(range.startContainer) && element.contains(range.endContainer);
+    },
+
+    insertLineBreakAtCaret(element) {
+        if (!this.selectionInsideElement(element)) {
+            this.placeCaretAtEnd(element);
+        }
+
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            this.placeCaretAtEnd(element);
+            return;
+        }
+
+        let range = selection.getRangeAt(0);
+        range.deleteContents();
+        const lineBreak = document.createTextNode('\n');
+        range.insertNode(lineBreak);
+
+        range = document.createRange();
+        range.setStartAfter(lineBreak);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    },
+
+    beginEdit(td, options = {}) {
+        if (!this.isEditableCell(td)) return;
+        if (this.editingCell === td) {
+            const activeSpan = td.querySelector('.cell-value');
+            if (activeSpan && typeof options.clientX === 'number' && typeof options.clientY === 'number') {
+                activeSpan.focus();
+                this.placeCaretFromPoint(activeSpan, options.clientX, options.clientY);
+            }
+            return;
+        }
+
+        if (this.editingCell && this.editingCell !== td) {
+            this.finishEdit(this.editingCell);
+        }
+
+        const span = td.querySelector('.cell-value');
+        if (!span) return;
+
+        this.selectCell(td);
+        this.editingCell = td;
+        td.classList.add('is-editing');
+        span.dataset.originalValue = span.textContent;
+        this.activateEditable(span, true);
+        if (options.replaceText !== undefined) {
+            span.textContent = options.replaceText;
+        }
+        span.focus();
+
+        if (options.replaceText !== undefined) {
+            this.placeCaretAtEnd(span);
+        } else if (typeof options.clientX === 'number' && typeof options.clientY === 'number') {
+            this.placeCaretFromPoint(span, options.clientX, options.clientY);
+        } else {
+            this.placeCaretAtEnd(span);
+        }
+    },
+
+    commitEdit(td, moveDirection = null) {
+        if (!this.isEditableCell(td)) return;
+        const span = td.querySelector('.cell-value');
+        if (!span) return;
+
+        const path = td.dataset.path || span.dataset.path || '';
+        const originalValue = span.dataset.originalValue ?? span.textContent;
+        const raw = span.textContent.replace(/\r\n?/g, '\n');
+        const nextPath = moveDirection ? this.findAdjacentCellPath(td, moveDirection) : null;
+        this.activateEditable(span, false);
+        td.classList.remove('is-editing');
+        this.editingCell = null;
+
+        if (raw === originalValue) {
+            this.selectCell(td);
+            if (nextPath) this.selectCellByPath(nextPath);
+            return;
+        }
+
+        const newVal = this.parseValue(raw);
+        if (newVal.error) {
+            span.textContent = originalValue;
+            this.setStatus('值格式错误: ' + newVal.error, true);
+            this.selectCell(td);
+            return;
+        }
+
         try {
+            this.pushUndo();
             this.setValueAtPath(this.data, path, newVal.value);
             this.setStatus('已更新: ' + path);
-            // Re-render to reflect changes
             this.render();
+            this.selectCellByPath(nextPath || path);
         } catch(err) {
             this.setStatus('更新失败: ' + err.message, true);
         }
     },
 
+    finishEdit(td, moveDirection = null) {
+        if (!td || this.editingCell !== td) return;
+        this.commitEdit(td, moveDirection);
+    },
+
+    cancelEdit(td) {
+        if (!td || this.editingCell !== td) return;
+        const span = td.querySelector('.cell-value');
+        if (!span) return;
+        span.textContent = span.dataset.originalValue ?? span.textContent;
+        this.activateEditable(span, false);
+        td.classList.remove('is-editing');
+        this.editingCell = null;
+        this.selectCell(td);
+    },
+
+    normalizeClipboardRows(text) {
+        return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((row, index, rows) => row.length > 0 || index < rows.length - 1);
+    },
+
+    parseClipboardMatrix(text) {
+        const rows = this.normalizeClipboardRows(text);
+        if (rows.length === 0) return [[]];
+        return rows.map((row) => row.split('\t'));
+    },
+
+    serializeValueForClipboard(val) {
+        if (val === null || val === undefined) return '';
+        if (typeof val === 'object') {
+            try {
+                return JSON.stringify(val);
+            } catch (error) {
+                return '';
+            }
+        }
+        return String(val);
+    },
+
+    getCellClipboardValue(td) {
+        const path = td?.dataset?.path;
+        if (!path) return '';
+        return this.serializeValueForClipboard(this.getValueAtPath(this.data, path));
+    },
+
+    getSelectionMatrix() {
+        const cells = this.getSelectedCells();
+        if (cells.length === 0) return [];
+        if (cells.length === 1) return [[this.getCellClipboardValue(cells[0])]];
+
+        const coordinates = cells.map((cell) => ({ cell, ...this.getCellCoordinates(cell) })).filter((entry) => entry.table);
+        if (coordinates.length === 0) return [];
+
+        const table = coordinates[0].table;
+        const rowStart = Math.min(...coordinates.map((entry) => entry.rowIndex));
+        const rowEnd = Math.max(...coordinates.map((entry) => entry.rowIndex));
+        const colStart = Math.min(...coordinates.map((entry) => entry.colIndex));
+        const colEnd = Math.max(...coordinates.map((entry) => entry.colIndex));
+
+        const matrix = [];
+        for (let row = rowStart; row <= rowEnd; row++) {
+            const values = [];
+            for (let col = colStart; col <= colEnd; col++) {
+                const cell = this.getCellByCoordinates(table, row, col);
+                values.push(cell ? this.getCellClipboardValue(cell) : '');
+            }
+            matrix.push(values);
+        }
+        return matrix;
+    },
+
+    captureSelectionState() {
+        const paths = this.getSelectedCells().map((cell) => cell?.dataset?.path).filter(Boolean);
+        return {
+            paths,
+            activePath: this.selectedCell?.dataset?.path || null,
+            anchorPath: this.selectionAnchorCell?.dataset?.path || null,
+        };
+    },
+
+    restoreSelectionState(state) {
+        if (!state?.paths?.length) return;
+        const cells = state.paths.map((path) => this.findCellByPath(path)).filter(Boolean);
+        const activeCell = state.activePath ? this.findCellByPath(state.activePath) : cells[cells.length - 1];
+        const anchorCell = state.anchorPath ? this.findCellByPath(state.anchorPath) : cells[0];
+        if (!activeCell) return;
+
+        this.clearRangeSelection();
+        this.selectedRangeCells = cells;
+        this.selectionAnchorCell = anchorCell || activeCell;
+        if (this.selectedCell && this.selectedCell !== activeCell) {
+            this.selectedCell.classList.remove('is-selected');
+        }
+        this.selectedCell = activeCell;
+        this.selectedCell.classList.add('is-selected');
+        this.updateRangeVisuals();
+        this.selectedCell.focus({ preventScroll: true });
+    },
+
+    getRangeRectFromCells(cells) {
+        const coordinates = cells.map((cell) => ({ cell, ...this.getCellCoordinates(cell) })).filter((entry) => entry.table);
+        if (coordinates.length === 0) return null;
+        return {
+            table: coordinates[0].table,
+            rowStart: Math.min(...coordinates.map((entry) => entry.rowIndex)),
+            rowEnd: Math.max(...coordinates.map((entry) => entry.rowIndex)),
+            colStart: Math.min(...coordinates.map((entry) => entry.colIndex)),
+            colEnd: Math.max(...coordinates.map((entry) => entry.colIndex)),
+        };
+    },
+
+    applyMatrixToSelection(matrix, options = {}) {
+        const startCell = this.selectedCell;
+        if (!startCell || matrix.length === 0) return false;
+
+        const anchor = this.getCellCoordinates(startCell);
+        if (!anchor) return false;
+
+        const updates = [];
+        const fillRange = matrix.length === 1 && matrix[0].length === 1 && this.hasRangeSelection();
+
+        if (fillRange) {
+            const value = matrix[0][0];
+            for (const cell of this.getSelectedCells()) {
+                if (!this.isEditableCell(cell)) continue;
+                updates.push({ path: cell.dataset.path, raw: value });
+            }
+        } else {
+            for (let rowOffset = 0; rowOffset < matrix.length; rowOffset++) {
+                for (let colOffset = 0; colOffset < matrix[rowOffset].length; colOffset++) {
+                    const cell = this.getCellByCoordinates(anchor.table, anchor.rowIndex + rowOffset, anchor.colIndex + colOffset);
+                    if (!cell || !this.isEditableCell(cell)) continue;
+                    updates.push({ path: cell.dataset.path, raw: matrix[rowOffset][colOffset] });
+                }
+            }
+        }
+
+        if (updates.length === 0) return false;
+
+        const parsedUpdates = [];
+        for (const update of updates) {
+            const parsed = this.parseValue(update.raw);
+            if (parsed.error) {
+                this.setStatus('值格式错误: ' + parsed.error, true);
+                return false;
+            }
+            parsedUpdates.push({ path: update.path, value: parsed.value });
+        }
+
+        const selectionState = options.selectionState || this.captureSelectionState();
+
+        this.pushUndo();
+        for (const update of parsedUpdates) {
+            this.setValueAtPath(this.data, update.path, update.value);
+        }
+
+        this.render();
+        this.restoreSelectionState(options.preserveSelection ? selectionState : {
+            paths: parsedUpdates.map((update) => update.path),
+            activePath: options.activePath || parsedUpdates[parsedUpdates.length - 1].path,
+            anchorPath: options.anchorPath || parsedUpdates[0].path,
+        });
+        this.setStatus(options.statusMessage || `已粘贴 ${parsedUpdates.length} 个单元格`);
+        return true;
+    },
+
+    applyFillDrag() {
+        if (!this.fillSourceRect || !this.fillSourceMatrix) return false;
+        const targetRect = this.getRangeRectFromCells(this.getSelectedCells());
+        if (!targetRect || targetRect.table !== this.fillSourceRect.table) return false;
+
+        const updates = [];
+        for (let row = targetRect.rowStart; row <= targetRect.rowEnd; row++) {
+            for (let col = targetRect.colStart; col <= targetRect.colEnd; col++) {
+                const inSourceRect = row >= this.fillSourceRect.rowStart && row <= this.fillSourceRect.rowEnd && col >= this.fillSourceRect.colStart && col <= this.fillSourceRect.colEnd;
+                if (inSourceRect) continue;
+                const cell = this.getCellByCoordinates(targetRect.table, row, col);
+                if (!cell || !this.isEditableCell(cell)) continue;
+                const sourceRow = (row - this.fillSourceRect.rowStart) % this.fillSourceMatrix.length;
+                const sourceCol = (col - this.fillSourceRect.colStart) % this.fillSourceMatrix[0].length;
+                updates.push({ path: cell.dataset.path, raw: this.fillSourceMatrix[sourceRow][sourceCol] });
+            }
+        }
+
+        if (updates.length === 0) return false;
+
+        const parsed = updates.map((update) => ({ ...update, parsed: this.parseValue(update.raw) }));
+        const error = parsed.find((item) => item.parsed.error);
+        if (error) {
+            this.setStatus('值格式错误: ' + error.parsed.error, true);
+            return false;
+        }
+
+        const selectionState = this.captureSelectionState();
+        this.pushUndo();
+        for (const item of parsed) {
+            this.setValueAtPath(this.data, item.path, item.parsed.value);
+        }
+        this.render();
+        this.restoreSelectionState(selectionState);
+        this.setStatus(`已填充 ${updates.length} 个单元格`);
+        return true;
+    },
+
     parseValue(raw) {
-        if (raw === 'null' || raw === '') return { value: null };
-        if (raw === 'true') return { value: true };
-        if (raw === 'false') return { value: false };
+        const trimmed = raw.trim();
+        if (trimmed === 'null' || trimmed === '') return { value: null };
+        if (trimmed === 'true') return { value: true };
+        if (trimmed === 'false') return { value: false };
         
         // Try number
-        if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(raw)) {
-            return { value: Number(raw) };
+        if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(trimmed)) {
+            return { value: Number(trimmed) };
         }
         
         // Try JSON parse (for objects/arrays typed inline)
-        if ((raw.startsWith('{') && raw.endsWith('}')) || 
-            (raw.startsWith('[') && raw.endsWith(']'))) {
+        if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
+            (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
             try {
-                return { value: JSON.parse(raw) };
+                return { value: JSON.parse(trimmed) };
             } catch(e) {
                 return { error: e.message };
             }
@@ -1050,8 +1845,7 @@ const App = {
     addRow(arrayPath) {
         const arr = this.getValueAtPath(this.data, arrayPath);
         if (!Array.isArray(arr)) return this.setStatus('路径不是数组', true);
-        
-        // Determine template from first element
+        this.pushUndo();
         let template = null;
         if (arr.length > 0) {
             const first = arr[0];
@@ -1073,31 +1867,277 @@ const App = {
         const parentPath = arrayPath;
         const arr = this.getValueAtPath(this.data, parentPath);
         if (!Array.isArray(arr)) return;
-        
+        this.pushUndo();
         arr.splice(index, 1);
         this.nestedStates = {};
         this.render();
         this.setStatus(`已删除行 [${index}]`);
     },
 
+    getRowSelectableCells(tr) {
+        return Array.from(tr.children).filter((cell) => this.isSelectableCell(cell));
+    },
+
+    findAdjacentCell(td, direction) {
+        if (!this.isSelectableCell(td)) return null;
+        const table = td.closest('table.json-table');
+        const tr = td.closest('tr');
+        if (!table || !tr || !table.tBodies[0]) return null;
+
+        const rows = Array.from(table.tBodies[0].rows);
+        const rowIndex = rows.indexOf(tr);
+        if (rowIndex === -1) return null;
+
+        const currentRowCells = this.getRowSelectableCells(tr);
+        const colIndex = currentRowCells.indexOf(td);
+        if (colIndex === -1) return null;
+
+        if (direction === 'left') return currentRowCells[colIndex - 1] || null;
+        if (direction === 'right') return currentRowCells[colIndex + 1] || null;
+
+        const targetRow = direction === 'up' ? rows[rowIndex - 1] : rows[rowIndex + 1];
+        if (!targetRow) return null;
+
+        const targetCells = this.getRowSelectableCells(targetRow);
+        if (targetCells.length === 0) return null;
+        return targetCells[Math.min(colIndex, targetCells.length - 1)] || null;
+    },
+
+    findAdjacentCellPath(td, direction) {
+        return this.findAdjacentCell(td, direction)?.dataset.path || null;
+    },
+
+    findCellByPath(path) {
+        if (!path) return null;
+        return Array.from(document.querySelectorAll('td[data-path]')).find((cell) => cell.dataset.path === path) || null;
+    },
+
+    selectCellByPath(path) {
+        const cell = this.findCellByPath(path);
+        if (cell) this.selectCell(cell);
+        return cell;
+    },
+
+    isPrintableKey(e) {
+        return e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+    },
+
     // ===== Keyboard =====
     handleKeydown(e) {
-        if (e.key === 'Tab' && e.target.classList.contains('cell-value')) {
-            // Allow tab navigation between cells
+        const activeCell = this.editingCell || this.selectedCell || this.getSelectableCellFromTarget(e.target);
+        const editingSpan = this.editingCell?.querySelector('.cell-value');
+
+        if (this.editingCell && editingSpan && (e.target === editingSpan || editingSpan.contains(e.target))) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this.cancelEdit(this.editingCell);
+                return;
+            }
+
+            if (e.key === 'Enter' && e.altKey) {
+                e.preventDefault();
+                this.insertLineBreakAtCaret(editingSpan);
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.finishEdit(this.editingCell, 'down');
+                return;
+            }
+
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                this.finishEdit(this.editingCell, e.shiftKey ? 'left' : 'right');
+            }
+            return;
+        }
+
+        if (!activeCell) return;
+
+        const keyToDirection = {
+            ArrowUp: 'up',
+            ArrowDown: 'down',
+            ArrowLeft: 'left',
+            ArrowRight: 'right',
+        };
+
+        if (e.shiftKey && keyToDirection[e.key]) {
             e.preventDefault();
-            const allCells = [...document.querySelectorAll('.cell-value[contenteditable]')];
-            const idx = allCells.indexOf(e.target);
-            const next = (idx + 1) % allCells.length;
-            allCells[next]?.focus();
+            const anchorCell = this.selectionAnchorCell || activeCell;
+            const nextCell = this.findAdjacentCell(activeCell, keyToDirection[e.key]);
+            if (nextCell) this.selectRange(anchorCell, nextCell);
+            return;
+        }
+
+        if (this.isPrintableKey(e) && this.isEditableCell(activeCell)) {
+            e.preventDefault();
+            this.beginEdit(activeCell, { replaceText: e.key });
+            return;
+        }
+
+        if ((e.key === 'Backspace' || e.key === 'Delete') && this.getSelectedCells().length > 0) {
+            e.preventDefault();
+            this.applyMatrixToSelection([['']], {
+                preserveSelection: true,
+                statusMessage: `已清空 ${this.getSelectedCells().length} 个单元格`,
+            });
+            return;
+        }
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const nextCell = this.findAdjacentCell(activeCell, 'down');
+            if (nextCell) this.selectCell(nextCell);
+            return;
+        }
+
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const nextCell = this.findAdjacentCell(activeCell, e.shiftKey ? 'left' : 'right');
+            if (nextCell) this.selectCell(nextCell);
+            return;
+        }
+
+        const direction = keyToDirection[e.key];
+        if (!direction) return;
+        e.preventDefault();
+        const nextCell = this.findAdjacentCell(activeCell, direction);
+        if (nextCell) this.selectCell(nextCell);
+    },
+
+    handleTableHover(e) {
+        const cell = this.getSelectableCellFromTarget(e.target);
+        if (this.isFillDragging && this.fillSourceRect && cell) {
+            const target = this.getCellCoordinates(cell);
+            if (target && target.table === this.fillSourceRect.table) {
+                const previewCell = this.getCellByCoordinates(
+                    this.fillSourceRect.table,
+                    Math.max(this.fillSourceRect.rowStart, target.rowIndex),
+                    Math.max(this.fillSourceRect.colStart, target.colIndex)
+                );
+                const anchorCell = this.getCellByCoordinates(this.fillSourceRect.table, this.fillSourceRect.rowStart, this.fillSourceRect.colStart);
+                if (previewCell && anchorCell) {
+                    this.selectRange(anchorCell, previewCell);
+                }
+            }
+            return;
+        }
+        if (this.isMouseSelecting && this.selectionAnchorCell && cell) {
+            if (cell !== this.selectionAnchorCell) {
+                this.mouseSelectionMoved = true;
+            }
+            this.selectRange(this.selectionAnchorCell, cell);
+            return;
+        }
+        this.setHoveredCell(cell);
+    },
+
+    handleTableMouseDown(e) {
+        if (e.button !== 0) return;
+        if (e.target.closest('.selection-fill-handle')) {
+            if (!this.selectedCell) return;
+            e.preventDefault();
+            e.stopPropagation();
+            this.isFillDragging = true;
+            this.fillSourceMatrix = this.getSelectionMatrix();
+            this.fillSourceRect = this.getRangeRectFromCells(this.getSelectedCells());
+            return;
+        }
+        if (e.target.closest('button')) return;
+        const cell = this.getSelectableCellFromTarget(e.target);
+        if (!cell) return;
+
+        if (this.editingCell && this.editingCell !== cell) {
+            this.finishEdit(this.editingCell);
+        }
+
+        this.isMouseSelecting = true;
+        this.mouseSelectionMoved = false;
+        this.selectionAnchorCell = e.shiftKey && this.selectionAnchorCell ? this.selectionAnchorCell : cell;
+        if (e.shiftKey && this.selectionAnchorCell) {
+            this.selectRange(this.selectionAnchorCell, cell);
+        } else {
+            this.selectCell(cell);
+            this.selectedRangeCells = [cell];
+        }
+    },
+
+    finishMouseSelection() {
+        if (this.isFillDragging) {
+            this.applyFillDrag();
+            this.isFillDragging = false;
+            this.fillSourceMatrix = null;
+            this.fillSourceRect = null;
+            return;
+        }
+        if (this.isMouseSelecting && this.mouseSelectionMoved) {
+            this.suppressNextClickSelection = true;
+        }
+        this.isMouseSelecting = false;
+        if (this.selectedRangeCells.length === 1 && this.selectedRangeCells[0] === this.selectedCell) {
+            this.clearRangeSelection();
+        }
+    },
+
+    handleTableDoubleClick(e) {
+        const cell = this.getSelectableCellFromTarget(e.target);
+        if (!cell) return;
+        this.selectCell(cell);
+        if (this.isEditableCell(cell)) {
+            this.beginEdit(cell, { clientX: e.clientX, clientY: e.clientY });
         }
     },
 
     // ===== Table Click =====
     handleTableClick(e) {
-        // Handle right-click for context menu
-        if (e.button === 2) {
-            // could add context menu here
+        const cell = this.getSelectableCellFromTarget(e.target);
+        if (!cell) {
+            if (!e.target.closest('.context-menu')) this.clearSelection();
+            return;
         }
+
+        if (this.suppressNextClickSelection) {
+            this.suppressNextClickSelection = false;
+            return;
+        }
+
+        if (this.editingCell && this.editingCell !== cell && !this.editingCell.contains(e.target)) {
+            this.finishEdit(this.editingCell);
+        }
+
+        this.selectCell(cell);
+    },
+
+    handleCopy(e) {
+        if (this.editingCell || this.getSelectedCells().length === 0) return;
+        const matrix = this.getSelectionMatrix();
+        if (matrix.length === 0) return;
+        const text = matrix.map((row) => row.join('\t')).join('\n');
+        e.preventDefault();
+        e.clipboardData.setData('text/plain', text);
+        this.setStatus(`已复制 ${matrix.length} 行 ${matrix[0]?.length || 0} 列`);
+    },
+
+    handleCut(e) {
+        if (this.editingCell || this.getSelectedCells().length === 0) return;
+        const matrix = this.getSelectionMatrix();
+        if (matrix.length === 0) return;
+        const text = matrix.map((row) => row.join('\t')).join('\n');
+        e.preventDefault();
+        e.clipboardData.setData('text/plain', text);
+        this.applyMatrixToSelection([['']], {
+            preserveSelection: true,
+            statusMessage: `已剪切 ${this.getSelectedCells().length} 个单元格`,
+        });
+    },
+
+    handlePaste(e) {
+        if (this.editingCell || !this.selectedCell) return;
+        const text = e.clipboardData?.getData('text/plain');
+        if (!text) return;
+        e.preventDefault();
+        this.applyMatrixToSelection(this.parseClipboardMatrix(text));
     },
 
     // ===== Context Menu =====
