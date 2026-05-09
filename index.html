@@ -337,7 +337,7 @@ body {
 .json-table td.cell-value-wrapper.is-editing,
 .json-table td.cell-nested.is-editing {
     background: #ffffff;
-    box-shadow: inset 0 0 0 2px var(--selection-border);
+    box-shadow: inset 0 0 0 1px rgba(26, 115, 232, 0.35);
 }
 
 .json-table td.is-range-selected:not(.is-selected):not(.is-editing) {
@@ -358,6 +358,20 @@ body {
     border-color: var(--selection-border);
     border-width: 0;
     z-index: 2;
+}
+
+.json-table td.cell-value-wrapper::after,
+.json-table td.cell-nested::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    pointer-events: none;
+    border: 1px solid transparent;
+    z-index: 3;
+}
+
+.json-table td.is-selected::after {
+    border-color: rgba(26, 115, 232, 0.95);
 }
 
 .json-table td.range-edge-top::before { border-top-width: 2px; }
@@ -486,6 +500,48 @@ body {
     border-color: var(--btn-accent);
     color: var(--btn-accent);
     background: var(--accent-light);
+}
+
+.json-table-layout {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.table-side-actions {
+    display: flex;
+    align-items: stretch;
+}
+
+.add-column-btn {
+    padding: 10px 4px;
+    border: 1px dashed #bbb;
+    border-radius: 2px;
+    background: #fafafa;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+    transition: all 0.12s;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    min-width: 28px;
+}
+
+.add-column-btn:hover {
+    border-color: var(--btn-accent);
+    color: var(--btn-accent);
+    background: var(--accent-light);
+}
+
+.header-editor {
+    width: 100%;
+    min-width: 90px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--text-color);
+    font: inherit;
 }
 
 /* ===== Empty State ===== */
@@ -631,6 +687,9 @@ const App = {
     isFillDragging: false,
     fillSourceMatrix: null,
     fillSourceRect: null,
+    editingHeader: null,
+    pendingHeaderEdit: null,
+    contextMenuState: null,
     
     // --- Undo/Redo ---
     undoStack: [],
@@ -683,6 +742,7 @@ const App = {
         document.getElementById('tableView').addEventListener('click', (e) => this.handleTableClick(e));
         document.getElementById('tableView').addEventListener('dblclick', (e) => this.handleTableDoubleClick(e));
         document.getElementById('tableView').addEventListener('mousedown', (e) => this.handleTableMouseDown(e));
+        document.getElementById('tableView').addEventListener('contextmenu', (e) => this.handleTableContextMenu(e));
         document.getElementById('tableView').addEventListener('input', (e) => this.handleCellEdit(e));
         document.getElementById('tableView').addEventListener('keydown', (e) => this.handleKeydown(e));
         document.getElementById('tableView').addEventListener('mouseover', (e) => this.handleTableHover(e));
@@ -692,6 +752,7 @@ const App = {
         document.addEventListener('cut', (e) => this.handleCut(e));
         document.addEventListener('mouseup', () => this.finishMouseSelection());
         document.addEventListener('click', () => this.hideContextMenu());
+        document.getElementById('contextMenu').addEventListener('click', (e) => this.handleContextMenuAction(e));
         
         // Global undo/redo hotkeys
         document.addEventListener('keydown', (e) => {
@@ -736,6 +797,8 @@ const App = {
         this.isFillDragging = false;
         this.fillSourceMatrix = null;
         this.fillSourceRect = null;
+        this.editingHeader = null;
+        this.pendingHeaderEdit = null;
         this.render();
         this.syncTextarea();
         this.setStatus('已撤销');
@@ -758,6 +821,8 @@ const App = {
         this.isFillDragging = false;
         this.fillSourceMatrix = null;
         this.fillSourceRect = null;
+        this.editingHeader = null;
+        this.pendingHeaderEdit = null;
         this.render();
         this.syncTextarea();
         this.setStatus('已重做');
@@ -898,6 +963,8 @@ const App = {
         this.isFillDragging = false;
         this.fillSourceMatrix = null;
         this.fillSourceRect = null;
+        this.editingHeader = null;
+        this.contextMenuState = null;
         
         if (this.data === null || this.data === undefined) {
             container.innerHTML = '';
@@ -917,14 +984,26 @@ const App = {
         const table = this.createTable(this.data, '');
         wrapper.appendChild(table);
         container.appendChild(wrapper);
+
+        if (this.pendingHeaderEdit) {
+            const { path: pendingPath, key: pendingKey } = this.pendingHeaderEdit;
+            this.pendingHeaderEdit = null;
+            requestAnimationFrame(() => {
+                const header = this.findHeaderByPath(pendingPath, pendingKey);
+                if (header) this.beginHeaderEdit(header, { selectAll: true });
+            });
+        }
         
         this.updateBreadcrumb();
     },
 
     createTable(data, path) {
         const wrapper = document.createElement('div');
-        wrapper.style.display = 'inline-block';
+        wrapper.className = 'json-table-layout';
         wrapper.style.marginBottom = '8px';
+
+        const tableContainer = document.createElement('div');
+        tableContainer.style.display = 'inline-block';
         
         // Determine if data is array or object
         const isArray = Array.isArray(data);
@@ -967,6 +1046,10 @@ const App = {
         
         for (const key of allKeys) {
             const th = document.createElement('th');
+            th.setAttribute('data-header-path', path);
+            th.setAttribute('data-header-key', key);
+            th.setAttribute('data-header-editable', 'true');
+            th.title = '双击修改列标题';
             
             // Check if column has any nested values
             const sample = rows.find(r => r && typeof r === 'object' && !Array.isArray(r) && r[key] !== undefined);
@@ -990,7 +1073,10 @@ const App = {
                 th.appendChild(toggle);
             }
             
-            th.appendChild(document.createTextNode(key));
+            const label = document.createElement('span');
+            label.className = 'header-label';
+            label.textContent = key;
+            th.appendChild(label);
             
             // Type tag
             if (sampleVal !== null && sampleVal !== undefined && !(typeof sampleVal === 'object')) {
@@ -1041,6 +1127,8 @@ const App = {
                 td.className = 'row-num';
                 td.textContent = i + 1;
                 td.title = '点击删除此行';
+                td.setAttribute('data-row-index', i);
+                td.setAttribute('data-array-path', path);
                 td.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (confirm('删除第 ' + (i+1) + ' 行？')) this.deleteRow(path, i);
@@ -1082,7 +1170,7 @@ const App = {
         }
         
         table.appendChild(tbody);
-        wrapper.appendChild(table);
+        tableContainer.appendChild(table);
         
         // Add row button for arrays
         if (isArray) {
@@ -1090,8 +1178,22 @@ const App = {
             addBtn.className = 'add-row-btn';
             addBtn.textContent = '+ 添加行';
             addBtn.addEventListener('click', () => this.addRow(path));
-            wrapper.appendChild(addBtn);
+            tableContainer.appendChild(addBtn);
+        } else {
+            const sideActions = document.createElement('div');
+            sideActions.className = 'table-side-actions';
+            const addColumnBtn = document.createElement('button');
+            addColumnBtn.className = 'add-column-btn';
+            addColumnBtn.textContent = '+ 添加列';
+            addColumnBtn.title = '为当前对象添加列';
+            addColumnBtn.addEventListener('click', () => this.addColumn(path));
+            sideActions.appendChild(addColumnBtn);
+            wrapper.appendChild(tableContainer);
+            wrapper.appendChild(sideActions);
+            return wrapper;
         }
+
+        wrapper.appendChild(tableContainer);
         
         return wrapper;
     },
@@ -1122,10 +1224,14 @@ const App = {
             for (let i = 0; i < data.length; i++) {
                 const tr = document.createElement('tr');
                 const tdIdx = document.createElement('td');
+                tdIdx.className = 'row-num';
                 tdIdx.style.textAlign = 'center';
                 tdIdx.style.color = 'var(--text-muted)';
                 tdIdx.style.fontSize = '11px';
                 tdIdx.textContent = i + 1;
+                tdIdx.title = '右键删除此项';
+                tdIdx.setAttribute('data-row-index', i);
+                tdIdx.setAttribute('data-array-path', path);
                 tr.appendChild(tdIdx);
                 
                 const tdVal = document.createElement('td');
@@ -1242,12 +1348,177 @@ const App = {
         return '';
     },
 
+    isEditableHeader(th) {
+        return !!th && th.matches('th[data-header-editable="true"]');
+    },
+
+    getHeaderFromTarget(target) {
+        return target?.closest?.('th[data-header-editable="true"]') || null;
+    },
+
+    findHeaderByPath(path, key) {
+        const headers = Array.from(document.querySelectorAll('th[data-header-editable="true"]'));
+        return headers.find((header) => (header.dataset.headerPath || '') === (path || '') && header.dataset.headerKey === key) || null;
+    },
+
+    selectHeaderText(input) {
+        input.focus();
+        input.setSelectionRange(0, input.value.length);
+    },
+
+    beginHeaderEdit(th, options = {}) {
+        if (!this.isEditableHeader(th)) return;
+        if (this.editingHeader && this.editingHeader !== th) {
+            this.commitHeaderEdit(this.editingHeader);
+        }
+        if (this.editingHeader === th) {
+            const existingInput = th.querySelector('.header-editor');
+            if (existingInput && options.selectAll) this.selectHeaderText(existingInput);
+            return;
+        }
+
+        const label = th.querySelector('.header-label');
+        const originalValue = th.dataset.headerKey || label?.textContent || '';
+        th.classList.add('header-editing');
+        th.innerHTML = '';
+
+        const input = document.createElement('input');
+        input.className = 'header-editor';
+        input.type = 'text';
+        input.value = originalValue;
+        input.dataset.originalValue = originalValue;
+        th.appendChild(input);
+        this.editingHeader = th;
+
+        input.addEventListener('click', (e) => e.stopPropagation());
+        input.addEventListener('dblclick', (e) => e.stopPropagation());
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.commitHeaderEdit(th);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                this.cancelHeaderEdit(th);
+            }
+        });
+        input.addEventListener('blur', () => {
+            if (this.editingHeader === th) this.commitHeaderEdit(th);
+        });
+
+        if (options.selectAll) {
+            requestAnimationFrame(() => this.selectHeaderText(input));
+        } else {
+            requestAnimationFrame(() => input.focus());
+        }
+    },
+
+    finishHeaderEdit(commit = true) {
+        if (!this.editingHeader) return;
+        if (commit) {
+            this.commitHeaderEdit(this.editingHeader);
+        } else {
+            this.cancelHeaderEdit(this.editingHeader);
+        }
+    },
+
+    commitHeaderEdit(th) {
+        if (!th || this.editingHeader !== th) return;
+        const input = th.querySelector('.header-editor');
+        const nextKey = input?.value?.trim() || '';
+        const originalKey = th.dataset.headerKey || input?.dataset.originalValue || '';
+        this.editingHeader = null;
+
+        if (!nextKey) {
+            this.render();
+            this.setStatus('列标题不能为空', true);
+            return;
+        }
+
+        if (nextKey === originalKey) {
+            this.render();
+            this.setStatus('列标题未修改');
+            return;
+        }
+
+        this.renameColumn(th.dataset.headerPath || '', originalKey, nextKey);
+    },
+
+    cancelHeaderEdit(th) {
+        if (!th || this.editingHeader !== th) return;
+        this.editingHeader = null;
+        this.render();
+        this.setStatus('已取消列标题修改');
+    },
+
+    renameObjectKey(target, oldKey, newKey) {
+        const nextObject = {};
+        for (const key of Object.keys(target)) {
+            if (key === oldKey) {
+                nextObject[newKey] = target[key];
+            } else {
+                nextObject[key] = target[key];
+            }
+        }
+        for (const key of Object.keys(target)) {
+            delete target[key];
+        }
+        Object.assign(target, nextObject);
+    },
+
+    renameColumn(path, oldKey, newKey) {
+        const target = this.getValueAtPath(this.data, path);
+        if (target === undefined || target === null) {
+            this.render();
+            this.setStatus('未找到要修改的对象', true);
+            return;
+        }
+
+        try {
+            this.pushUndo();
+            if (Array.isArray(target)) {
+                const rows = target.filter((item) => item && typeof item === 'object' && !Array.isArray(item));
+                if (rows.some((row) => Object.prototype.hasOwnProperty.call(row, newKey) && newKey !== oldKey)) {
+                    throw new Error('新列标题已存在');
+                }
+                for (const row of rows) {
+                    if (Object.prototype.hasOwnProperty.call(row, oldKey)) {
+                        this.renameObjectKey(row, oldKey, newKey);
+                    }
+                }
+            } else if (typeof target === 'object') {
+                if (Object.prototype.hasOwnProperty.call(target, newKey) && newKey !== oldKey) {
+                    throw new Error('新列标题已存在');
+                }
+                this.renameObjectKey(target, oldKey, newKey);
+            } else {
+                throw new Error('当前节点不支持修改列标题');
+            }
+
+            this.render();
+            this.setStatus(`已将列标题修改为 ${newKey}`);
+        } catch (error) {
+            this.render();
+            this.setStatus(error.message || '列标题修改失败', true);
+        }
+    },
+
+    getNextColumnName(target, baseName = '新列') {
+        if (!target || typeof target !== 'object' || Array.isArray(target)) return baseName;
+        if (!Object.prototype.hasOwnProperty.call(target, baseName)) return baseName;
+        let index = 2;
+        while (Object.prototype.hasOwnProperty.call(target, `${baseName}${index}`)) {
+            index += 1;
+        }
+        return `${baseName}${index}`;
+    },
+
     // ===== Editing =====
     handleCellEdit(e) {
         const cellValue = e.target.closest('.cell-value');
         if (!cellValue) return;
         const td = cellValue.closest('td.cell-value-wrapper');
-        if (td) this.selectCell(td);
+        if (!td || this.editingCell === td) return;
+        this.selectCell(td);
     },
 
     activateEditable(span, enabled) {
@@ -1332,11 +1603,12 @@ const App = {
         if (!options.keepAnchor) {
             this.selectionAnchorCell = td;
         }
+        if (!options.keepRange) {
+            this.selectedRangeCells = [td];
+        }
         td.classList.remove('is-hover-target');
         td.classList.add('is-selected');
-        if (options.keepRange) {
-            this.updateRangeVisuals();
-        }
+        this.updateRangeVisuals();
         td.focus({ preventScroll: true });
     },
 
@@ -1728,8 +2000,8 @@ const App = {
                 if (inSourceRect) continue;
                 const cell = this.getCellByCoordinates(targetRect.table, row, col);
                 if (!cell || !this.isEditableCell(cell)) continue;
-                const sourceRow = (row - this.fillSourceRect.rowStart) % this.fillSourceMatrix.length;
-                const sourceCol = (col - this.fillSourceRect.colStart) % this.fillSourceMatrix[0].length;
+                const sourceRow = ((row - this.fillSourceRect.rowStart) % this.fillSourceMatrix.length + this.fillSourceMatrix.length) % this.fillSourceMatrix.length;
+                const sourceCol = ((col - this.fillSourceRect.colStart) % this.fillSourceMatrix[0].length + this.fillSourceMatrix[0].length) % this.fillSourceMatrix[0].length;
                 updates.push({ path: cell.dataset.path, raw: this.fillSourceMatrix[sourceRow][sourceCol] });
             }
         }
@@ -1863,6 +2135,46 @@ const App = {
         this.setStatus('已添加新行');
     },
 
+    addColumn(objectPath) {
+        const target = this.getValueAtPath(this.data, objectPath);
+        if (!target || typeof target !== 'object' || Array.isArray(target)) {
+            return this.setStatus('当前节点不是对象，无法添加列', true);
+        }
+
+        const newKey = this.getNextColumnName(target);
+        this.pushUndo();
+        target[newKey] = null;
+        this.pendingHeaderEdit = { path: objectPath || '', key: newKey };
+        this.render();
+        this.setStatus('已添加新列，请输入列标题');
+    },
+
+    deleteColumn(path, key) {
+        const target = this.getValueAtPath(this.data, path);
+        if (target === undefined || target === null) {
+            return this.setStatus('未找到列所在对象', true);
+        }
+
+        try {
+            this.pushUndo();
+            if (Array.isArray(target)) {
+                const rows = target.filter((item) => item && typeof item === 'object' && !Array.isArray(item));
+                for (const row of rows) {
+                    delete row[key];
+                }
+            } else if (typeof target === 'object') {
+                delete target[key];
+            } else {
+                throw new Error('当前节点不支持删除列');
+            }
+            this.render();
+            this.setStatus(`已删除列 ${key}`);
+        } catch (error) {
+            this.render();
+            this.setStatus(error.message || '删除列失败', true);
+        }
+    },
+
     deleteRow(arrayPath, index) {
         const parentPath = arrayPath;
         const arr = this.getValueAtPath(this.data, parentPath);
@@ -1924,6 +2236,9 @@ const App = {
 
     // ===== Keyboard =====
     handleKeydown(e) {
+        const headerInput = e.target.closest('.header-editor');
+        if (headerInput) return;
+
         const activeCell = this.editingCell || this.selectedCell || this.getSelectableCellFromTarget(e.target);
         const editingSpan = this.editingCell?.querySelector('.cell-value');
 
@@ -2011,14 +2326,14 @@ const App = {
         if (this.isFillDragging && this.fillSourceRect && cell) {
             const target = this.getCellCoordinates(cell);
             if (target && target.table === this.fillSourceRect.table) {
-                const previewCell = this.getCellByCoordinates(
-                    this.fillSourceRect.table,
-                    Math.max(this.fillSourceRect.rowStart, target.rowIndex),
-                    Math.max(this.fillSourceRect.colStart, target.colIndex)
-                );
-                const anchorCell = this.getCellByCoordinates(this.fillSourceRect.table, this.fillSourceRect.rowStart, this.fillSourceRect.colStart);
-                if (previewCell && anchorCell) {
-                    this.selectRange(anchorCell, previewCell);
+                const rowStart = Math.min(this.fillSourceRect.rowStart, target.rowIndex);
+                const rowEnd = Math.max(this.fillSourceRect.rowEnd, target.rowIndex);
+                const colStart = Math.min(this.fillSourceRect.colStart, target.colIndex);
+                const colEnd = Math.max(this.fillSourceRect.colEnd, target.colIndex);
+                const previewStart = this.getCellByCoordinates(this.fillSourceRect.table, rowStart, colStart);
+                const previewEnd = this.getCellByCoordinates(this.fillSourceRect.table, rowEnd, colEnd);
+                if (previewStart && previewEnd) {
+                    this.selectRange(previewStart, previewEnd);
                 }
             }
             return;
@@ -2059,7 +2374,6 @@ const App = {
             this.selectRange(this.selectionAnchorCell, cell);
         } else {
             this.selectCell(cell);
-            this.selectedRangeCells = [cell];
         }
     },
 
@@ -2075,12 +2389,16 @@ const App = {
             this.suppressNextClickSelection = true;
         }
         this.isMouseSelecting = false;
-        if (this.selectedRangeCells.length === 1 && this.selectedRangeCells[0] === this.selectedCell) {
-            this.clearRangeSelection();
-        }
     },
 
     handleTableDoubleClick(e) {
+        const header = this.getHeaderFromTarget(e.target);
+        if (header && !e.target.closest('.nested-toggle, .col-resizer')) {
+            e.preventDefault();
+            this.beginHeaderEdit(header, { selectAll: true });
+            return;
+        }
+
         const cell = this.getSelectableCellFromTarget(e.target);
         if (!cell) return;
         this.selectCell(cell);
@@ -2091,6 +2409,13 @@ const App = {
 
     // ===== Table Click =====
     handleTableClick(e) {
+        if (this.editingHeader && !e.target.closest('th.header-editing')) {
+            this.finishHeaderEdit(true);
+        }
+
+        const header = this.getHeaderFromTarget(e.target);
+        if (header) return;
+
         const cell = this.getSelectableCellFromTarget(e.target);
         if (!cell) {
             if (!e.target.closest('.context-menu')) this.clearSelection();
@@ -2140,24 +2465,68 @@ const App = {
         this.applyMatrixToSelection(this.parseClipboardMatrix(text));
     },
 
+    handleTableContextMenu(e) {
+        const rowNum = e.target.closest('td.row-num[data-row-index][data-array-path]');
+        if (rowNum) {
+            e.preventDefault();
+            this.showContextMenu(e.clientX, e.clientY, {
+                type: 'delete-row',
+                arrayPath: rowNum.dataset.arrayPath || '',
+                rowIndex: Number(rowNum.dataset.rowIndex),
+            });
+            return;
+        }
+
+        const header = this.getHeaderFromTarget(e.target);
+        if (header && !e.target.closest('.nested-toggle, .col-resizer')) {
+            e.preventDefault();
+            this.showContextMenu(e.clientX, e.clientY, {
+                type: 'delete-column',
+                path: header.dataset.headerPath || '',
+                key: header.dataset.headerKey || '',
+            });
+        }
+    },
+
+    handleContextMenuAction(e) {
+        const item = e.target.closest('.menu-item[data-action]');
+        if (!item || !this.contextMenuState) return;
+        e.stopPropagation();
+
+        const action = item.dataset.action;
+        const state = this.contextMenuState;
+        this.hideContextMenu();
+
+        if (action === 'delete-row') {
+            this.deleteRow(state.arrayPath || '', state.rowIndex);
+            return;
+        }
+
+        if (action === 'delete-column') {
+            this.deleteColumn(state.path || '', state.key || '');
+        }
+    },
+
     // ===== Context Menu =====
-    showContextMenu(x, y, path) {
+    showContextMenu(x, y, state) {
         const menu = document.getElementById('contextMenu');
-        menu.innerHTML = `
-            <div class="menu-item" data-action="edit">✏️ 编辑</div>
-            <div class="menu-item" data-action="copy-path">📋 复制路径</div>
-            <div class="divider"></div>
-            <div class="menu-item" data-action="wrap-object">📦 包装为对象</div>
-            <div class="menu-item" data-action="wrap-array">📋 包装为数组</div>
-        `;
+        this.contextMenuState = state;
+        if (state?.type === 'delete-row') {
+            menu.innerHTML = `<div class="menu-item" data-action="delete-row">🗑 删除第 ${state.rowIndex + 1} 行</div>`;
+        } else if (state?.type === 'delete-column') {
+            menu.innerHTML = `<div class="menu-item" data-action="delete-column">🗑 删除列 ${state.key}</div>`;
+        } else {
+            menu.innerHTML = '';
+        }
         menu.style.left = x + 'px';
         menu.style.top = y + 'px';
         menu.classList.add('show');
-        menu.setAttribute('data-path', path);
     },
 
     hideContextMenu() {
-        document.getElementById('contextMenu').classList.remove('show');
+        const menu = document.getElementById('contextMenu');
+        menu.classList.remove('show');
+        this.contextMenuState = null;
     },
 };
 
