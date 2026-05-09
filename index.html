@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>wysJSON - Nested JSON Table Editor</title>
+<style>
+:root {
+    --bg: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2d2d30;
+    --border: #3e3e42;
+    --text: #cccccc;
+    --text-muted: #858585;
+    --accent: #0078d4;
+    --accent-hover: #1a8cff;
+    --danger: #e51400;
+    --danger-hover: #ff392e;
+    --success: #388a34;
+    --warning: #cca700;
+    --cell-bg: #2d2d30;
+    --cell-edit-bg: #3c3c3c;
+    --header-bg: #333333;
+    --hover-bg: #3a3a3d;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ===== Toolbar ===== */
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.toolbar .title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-right: 16px;
+    letter-spacing: 1px;
+}
+
+.toolbar button {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-tertiary);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+}
+
+.toolbar button:hover { background: var(--hover-bg); border-color: #555; }
+.toolbar button.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+.toolbar button.accent:hover { background: var(--accent-hover); }
+.toolbar button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.toolbar button.danger:hover { background: var(--danger-hover); }
+
+.toolbar .sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+
+/* ===== Main Layout ===== */
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ===== Input Panel ===== */
+.input-panel {
+    width: 0;
+    overflow: hidden;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.25s;
+}
+
+.input-panel.open { width: 400px; }
+
+.input-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+}
+
+.input-panel textarea {
+    flex: 1;
+    background: var(--bg);
+    color: var(--text);
+    border: none;
+    padding: 14px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    tab-size: 2;
+}
+
+/* ===== Table View ===== */
+.table-view {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+}
+
+/* ===== JSON Table ===== */
+.json-table-wrapper {
+    display: inline-block;
+    min-width: 100%;
+}
+
+.json-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.json-table th {
+    background: var(--header-bg);
+    padding: 8px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    color: var(--accent);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    user-select: none;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.json-table th .type-tag {
+    font-weight: 400;
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-left: 6px;
+}
+
+.json-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: var(--cell-bg);
+    vertical-align: top;
+    min-width: 120px;
+    max-width: 400px;
+}
+
+.json-table td:last-child { border-right: none; }
+.json-table tr:last-child td { border-bottom: none; }
+
+.json-table tr:hover td { background: var(--hover-bg); }
+
+/* ===== Cell Types ===== */
+.cell-value {
+    cursor: text;
+    padding: 3px 6px;
+    border-radius: 3px;
+    min-height: 22px;
+    display: inline-block;
+    width: 100%;
+    word-break: break-all;
+}
+
+.cell-value:hover { background: var(--cell-edit-bg); }
+.cell-value:focus {
+    outline: 2px solid var(--accent);
+    background: var(--cell-edit-bg);
+}
+
+.cell-value.string { color: #ce9178; }
+.cell-value.number { color: #b5cea8; }
+.cell-value.boolean { color: #569cd6; }
+.cell-value.null { color: #858585; font-style: italic; }
+
+.cell-nested {
+    position: relative;
+}
+
+.nested-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--accent);
+    background: rgba(0,120,212,0.1);
+    border: 1px solid rgba(0,120,212,0.3);
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.nested-toggle:hover {
+    background: rgba(0,120,212,0.2);
+    border-color: var(--accent);
+}
+
+.nested-toggle .arrow {
+    transition: transform 0.2s;
+    display: inline-block;
+    font-size: 10px;
+}
+.nested-toggle.expanded .arrow { transform: rotate(90deg); }
+
+.nested-toggle .summary {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.nested-content {
+    margin-top: 4px;
+    padding-left: 8px;
+    border-left: 2px solid var(--accent);
+}
+
+/* ===== Row Actions ===== */
+.row-actions {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+}
+
+.row-actions button {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.row-actions button:hover {
+    background: var(--hover-bg);
+    color: var(--text);
+}
+
+.row-actions button.del:hover { color: var(--danger); }
+
+/* ===== Add Row ===== */
+.add-row-btn {
+    padding: 6px 14px;
+    border: 1px dashed var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 12px;
+    width: 100%;
+    transition: all 0.15s;
+    margin-top: 4px;
+}
+
+.add-row-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,120,212,0.05);
+}
+
+/* ===== Empty State ===== */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+}
+
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { font-size: 18px; margin-bottom: 8px; }
+.empty-state p { font-size: 13px; }
+
+/* ===== Status Bar ===== */
+.status-bar {
+    padding: 6px 14px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.status-bar.error { background: var(--danger); }
+
+/* ===== Breadcrumb ===== */
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    flex-shrink: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.breadcrumb span {
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.breadcrumb span:hover { color: var(--text); background: var(--hover-bg); }
+.breadcrumb span.current { color: var(--accent); font-weight: 600; }
+.breadcrumb .sep { color: var(--text-muted); cursor: default; }
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
+
+/* ===== Context Menu ===== */
+.context-menu {
+    position: fixed;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    z-index: 1000;
+    min-width: 180px;
+    padding: 4px 0;
+    display: none;
+}
+
+.context-menu.show { display: block; }
+
+.context-menu .menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.context-menu .menu-item:hover { background: var(--accent); color: #fff; }
+.context-menu .divider { height: 1px; background: var(--border); margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <span class="title">📋 wysJSON</span>
+    <button id="btnToggleInput" title="Toggle JSON Input Panel">📝 输入JSON</button>
+    <span class="sep"></span>
+    <button id="btnFormat" title="Format JSON">✨ 格式化</button>
+    <button id="btnMinify" title="Minify JSON">📦 压缩</button>
+    <span class="sep"></span>
+    <button id="btnCopy" title="Copy JSON">📋 复制JSON</button>
+    <button id="btnExport" class="accent" title="Export JSON">⬇ 导出</button>
+    <span class="sep"></span>
+    <button id="btnSample" title="Load Sample Data">🧪 示例数据</button>
+</div>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb" id="breadcrumb">
+    <span class="current">📄 root</span>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+    <!-- Input Panel -->
+    <div class="input-panel" id="inputPanel">
+        <div class="input-panel-header">
+            <span>📝 JSON 输入</span>
+            <button id="btnApply" class="accent" style="padding:4px 10px;font-size:11px;">应用</button>
+        </div>
+        <textarea id="jsonInput" placeholder='粘贴或编辑 JSON 数据...&#10;&#10;例如:&#10;{"name": "张三", "age": 30, "address": {"city": "北京", "street": "长安街"}}'></textarea>
+    </div>
+
+    <!-- Table View -->
+    <div class="table-view" id="tableView">
+        <div class="empty-state" id="emptyState">
+            <div class="icon">📋</div>
+            <h3>wysJSON 表格编辑器</h3>
+            <p>点击 <strong>📝 输入JSON</strong> 粘贴数据，或点击 <strong>🧪 示例数据</strong> 加载示例</p>
+        </div>
+    </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar" id="statusBar">
+    <span>✅ 就绪</span>
+</div>
+
+<!-- Context Menu -->
+<div class="context-menu" id="contextMenu"></div>
+
+<script>
+// ============================================================
+// wysJSON - Nested JSON Table Editor
+// Designed to be portable to VS Code Extension
+// ============================================================
+
+const App = {
+    data: null,
+    nestedStates: {}, // track expand/collapse state by path
+    selectedCell: null,
+    
+    init() {
+        this.bindEvents();
+        this.setStatus('就绪');
+    },
+
+    bindEvents() {
+        document.getElementById('btnToggleInput').addEventListener('click', () => this.toggleInput());
+        document.getElementById('btnApply').addEventListener('click', () => this.applyInput());
+        document.getElementById('btnFormat').addEventListener('click', () => this.formatJSON());
+        document.getElementById('btnMinify').addEventListener('click', () => this.minifyJSON());
+        document.getElementById('btnCopy').addEventListener('click', () => this.copyJSON());
+        document.getElementById('btnExport').addEventListener('click', () => this.exportJSON());
+        document.getElementById('btnSample').addEventListener('click', () => this.loadSample());
+        document.getElementById('tableView').addEventListener('click', (e) => this.handleTableClick(e));
+        document.getElementById('tableView').addEventListener('input', (e) => this.handleCellEdit(e));
+        document.getElementById('tableView').addEventListener('keydown', (e) => this.handleKeydown(e));
+        document.addEventListener('click', () => this.hideContextMenu());
+    },
+
+    // ===== Status =====
+    setStatus(msg, isError = false) {
+        const bar = document.getElementById('statusBar');
+        bar.textContent = (isError ? '❌ ' : '✅ ') + msg;
+        bar.className = 'status-bar' + (isError ? ' error' : '');
+    },
+
+    // ===== Input Panel =====
+    toggleInput() {
+        document.getElementById('inputPanel').classList.toggle('open');
+        if (document.getElementById('inputPanel').classList.contains('open')) {
+            document.getElementById('jsonInput').focus();
+        }
+    },
+
+    applyInput() {
+        const raw = document.getElementById('jsonInput').value.trim();
+        if (!raw) return;
+        try {
+            this.data = JSON.parse(raw);
+            this.nestedStates = {};
+            this.render();
+            this.setStatus('JSON 已加载');
+        } catch(e) {
+            this.setStatus('JSON 解析错误: ' + e.message, true);
+        }
+    },
+
+    // ===== Actions =====
+    formatJSON() {
+        if (this.data === null) return this.setStatus('没有数据', true);
+        const formatted = JSON.stringify(this.data, null, 2);
+        document.getElementById('jsonInput').value = formatted;
+        document.getElementById('inputPanel').classList.add('open');
+        this.setStatus('JSON 已格式化');
+    },
+
+    minifyJSON() {
+        if (this.data === null) return this.setStatus('没有数据', true);
+        const minified = JSON.stringify(this.data);
+        document.getElementById('jsonInput').value = minified;
+        document.getElementById('inputPanel').classList.add('open');
+        this.setStatus('JSON 已压缩');
+    },
+
+    copyJSON() {
+        if (this.data === null) return this.setStatus('没有数据', true);
+        navigator.clipboard.writeText(JSON.stringify(this.data, null, 2)).then(() => {
+            this.setStatus('JSON 已复制到剪贴板');
+        });
+    },
+
+    exportJSON() {
+        if (this.data === null) return this.setStatus('没有数据', true);
+        const json = JSON.stringify(this.data, null, 2);
+        document.getElementById('jsonInput').value = json;
+        document.getElementById('inputPanel').classList.add('open');
+        this.setStatus('JSON 已导出到输入面板');
+    },
+
+    loadSample() {
+        const sample = {
+            "employees": [
+                {
+                    "name": "张三",
+                    "age": 30,
+                    "email": "zhangsan@example.com",
+                    "skills": ["Java", "Python", "Go"],
+                    "address": {
+                        "city": "北京",
+                        "district": "海淀区",
+                        "street": "中关村大街1号"
+                    },
+                    "projects": [
+                        { "name": "Project Alpha", "role": "Leader", "hours": 160 },
+                        { "name": "Project Beta", "role": "Developer", "hours": 120 }
+                    ]
+                },
+                {
+                    "name": "李四",
+                    "age": 28,
+                    "email": "lisi@example.com",
+                    "skills": ["JavaScript", "React", "Node.js"],
+                    "address": {
+                        "city": "上海",
+                        "district": "浦东新区",
+                        "street": "张江路99号"
+                    },
+                    "projects": [
+                        { "name": "Project Gamma", "role": "Developer", "hours": 200 }
+                    ]
+                }
+            ],
+            "company": {
+                "name": "科技有限公司",
+                "founded": 2020,
+                "public": false,
+                "departments": {
+                    "engineering": { "head": "王五", "count": 50 },
+                    "design": { "head": "赵六", "count": 15 }
+                }
+            }
+        };
+        this.data = sample;
+        document.getElementById('jsonInput').value = JSON.stringify(sample, null, 2);
+        this.nestedStates = {};
+        this.render();
+        this.setStatus('示例数据已加载');
+    },
+
+    // ===== Breadcrumb =====
+    updateBreadcrumb() {
+        const bc = document.getElementById('breadcrumb');
+        bc.innerHTML = '<span class="current" data-path="">📄 root</span>';
+    },
+
+    // ===== Rendering =====
+    render() {
+        const container = document.getElementById('tableView');
+        const empty = document.getElementById('emptyState');
+        
+        if (this.data === null || this.data === undefined) {
+            container.innerHTML = '';
+            container.appendChild(empty);
+            empty.style.display = 'flex';
+            return;
+        }
+        
+        empty.style.display = 'none';
+        container.innerHTML = '';
+        
+        const wrapper = document.createElement('div');
+        wrapper.className = 'json-table-wrapper';
+        
+        const table = this.createTable(this.data, '');
+        wrapper.appendChild(table);
+        container.appendChild(wrapper);
+        
+        this.updateBreadcrumb();
+    },
+
+    createTable(data, path) {
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'inline-block';
+        wrapper.style.marginBottom = '8px';
+        
+        // Determine if data is array or object
+        const isArray = Array.isArray(data);
+        const rows = isArray ? data : [data];
+        
+        // Collect all keys across all rows
+        const allKeys = [];
+        const seenKeys = new Set();
+        for (const row of rows) {
+            if (row !== null && typeof row === 'object' && !Array.isArray(row)) {
+                for (const key of Object.keys(row)) {
+                    if (!seenKeys.has(key)) {
+                        seenKeys.add(key);
+                        allKeys.push(key);
+                    }
+                }
+            }
+        }
+        
+        // If no keys (empty or primitives array), render simple view
+        if (allKeys.length === 0) {
+            return this.createSimpleView(data, path, isArray);
+        }
+        
+        const table = document.createElement('table');
+        table.className = 'json-table';
+        table.setAttribute('data-path', path);
+        table.setAttribute('data-is-array', isArray);
+        
+        // Header
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        
+        // Row number column for arrays
+        if (isArray) {
+            const th = document.createElement('th');
+            th.textContent = '#';
+            th.style.width = '48px';
+            th.style.textAlign = 'center';
+            headerRow.appendChild(th);
+        }
+        
+        for (const key of allKeys) {
+            const th = document.createElement('th');
+            th.textContent = key;
+            
+            // Determine type of first non-null value for this column
+            const sampleVal = rows.find(r => r && r[key] !== undefined) ?? null;
+            const sample = sampleVal ? sampleVal[key] : null;
+            if (sample !== null && sample !== undefined) {
+                const tag = document.createElement('span');
+                tag.className = 'type-tag';
+                tag.textContent = Array.isArray(sample) ? '[array]' : 
+                                  typeof sample === 'object' ? '{obj}' : 
+                                  typeof sample;
+                th.appendChild(tag);
+            }
+            
+            headerRow.appendChild(th);
+        }
+        
+        // Actions column
+        if (isArray) {
+            const th = document.createElement('th');
+            th.style.width = '36px';
+            headerRow.appendChild(th);
+        }
+        
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // Body
+        const tbody = document.createElement('tbody');
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const rowPath = isArray ? `${path}[${i}]` : path;
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-path', rowPath);
+            
+            // Row number
+            if (isArray) {
+                const td = document.createElement('td');
+                td.style.textAlign = 'center';
+                td.style.color = 'var(--text-muted)';
+                td.style.fontSize = '11px';
+                td.style.padding = '8px 10px';
+                
+                const rowActions = document.createElement('div');
+                rowActions.className = 'row-actions';
+                rowActions.style.justifyContent = 'center';
+                
+                const delBtn = document.createElement('button');
+                delBtn.className = 'del';
+                delBtn.innerHTML = '✕';
+                delBtn.title = '删除此行';
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.deleteRow(path, i);
+                });
+                
+                rowActions.appendChild(delBtn);
+                
+                const numSpan = document.createElement('span');
+                numSpan.textContent = i;
+                numSpan.style.marginRight = '4px';
+                
+                td.appendChild(rowActions);
+                td.appendChild(document.createTextNode(' '));
+                tr.appendChild(td);
+            }
+            
+            for (const key of allKeys) {
+                const td = document.createElement('td');
+                const val = row && typeof row === 'object' && !Array.isArray(row) ? row[key] : undefined;
+                const cellPath = rowPath ? `${rowPath}.${key}` : key;
+                
+                this.renderCell(td, val, cellPath, key);
+                tr.appendChild(td);
+            }
+            
+            // Delete button column for arrays
+            if (isArray) {
+                const td = document.createElement('td');
+                td.style.textAlign = 'center';
+                td.style.padding = '4px';
+                const delBtn = document.createElement('button');
+                delBtn.className = 'del';
+                delBtn.innerHTML = '🗑';
+                delBtn.title = '删除此行';
+                delBtn.style.cssText = 'border:none;background:transparent;cursor:pointer;font-size:14px;padding:2px 6px;border-radius:3px;';
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.deleteRow(path, i);
+                });
+                delBtn.addEventListener('mouseenter', () => { delBtn.style.background = 'rgba(229,20,0,0.2)'; });
+                delBtn.addEventListener('mouseleave', () => { delBtn.style.background = 'transparent'; });
+                td.appendChild(delBtn);
+                tr.appendChild(td);
+            }
+            
+            tbody.appendChild(tr);
+        }
+        
+        table.appendChild(tbody);
+        wrapper.appendChild(table);
+        
+        // Add row button for arrays
+        if (isArray) {
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-row-btn';
+            addBtn.textContent = '+ 添加行';
+            addBtn.addEventListener('click', () => this.addRow(path));
+            wrapper.appendChild(addBtn);
+        }
+        
+        return wrapper;
+    },
+
+    createSimpleView(data, path, isArray) {
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'inline-block';
+        
+        const table = document.createElement('table');
+        table.className = 'json-table';
+        
+        if (isArray) {
+            // Array of primitives
+            const thead = document.createElement('thead');
+            const thRow = document.createElement('tr');
+            const thIdx = document.createElement('th');
+            thIdx.textContent = '#';
+            thIdx.style.width = '48px';
+            thIdx.style.textAlign = 'center';
+            thRow.appendChild(thIdx);
+            const thVal = document.createElement('th');
+            thVal.textContent = '值';
+            thRow.appendChild(thVal);
+            thead.appendChild(thRow);
+            table.appendChild(thead);
+            
+            const tbody = document.createElement('tbody');
+            for (let i = 0; i < data.length; i++) {
+                const tr = document.createElement('tr');
+                const tdIdx = document.createElement('td');
+                tdIdx.style.textAlign = 'center';
+                tdIdx.style.color = 'var(--text-muted)';
+                tdIdx.style.fontSize = '11px';
+                tdIdx.textContent = i;
+                tr.appendChild(tdIdx);
+                
+                const tdVal = document.createElement('td');
+                this.renderCell(tdVal, data[i], `${path}[${i}]`, `[${i}]`);
+                tr.appendChild(tdVal);
+                tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
+            wrapper.appendChild(table);
+            
+            const addBtn = document.createElement('button');
+            addBtn.className = 'add-row-btn';
+            addBtn.textContent = '+ 添加项';
+            addBtn.addEventListener('click', () => this.addRow(path));
+            wrapper.appendChild(addBtn);
+        } else {
+            // Single primitive or empty object
+            const tbody = document.createElement('tbody');
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            this.renderCell(td, data, path, 'value');
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            table.appendChild(tbody);
+            wrapper.appendChild(table);
+        }
+        
+        return wrapper;
+    },
+
+    renderCell(td, val, path, key) {
+        if (val === null || val === undefined) {
+            td.classList.add('cell-value-wrapper');
+            const span = document.createElement('span');
+            span.className = 'cell-value null';
+            span.setAttribute('data-path', path);
+            span.setAttribute('data-key', key);
+            span.setAttribute('data-type', 'null');
+            span.setAttribute('contenteditable', 'true');
+            span.textContent = 'null';
+            span.addEventListener('blur', (e) => this.commitEdit(e, path, 'null'));
+            td.appendChild(span);
+        } else if (typeof val === 'object') {
+            // Nested object or array
+            td.classList.add('cell-nested');
+            
+            const isArray = Array.isArray(val);
+            const nestedPath = path;
+            const collapsedKey = path; // use path as unique key for state
+            
+            const header = document.createElement('div');
+            header.className = 'nested-toggle';
+            
+            // Check if expanded
+            const isExpanded = this.nestedStates[collapsedKey] !== false;
+            if (isExpanded) header.classList.add('expanded');
+            
+            header.innerHTML = `
+                <span class="arrow">▶</span>
+                <span>${isArray ? `[${val.length}项]` : `{${Object.keys(val).length}键}`}</span>
+                <span class="summary">${this.summarize(val)}</span>
+            `;
+            
+            const nestedContainer = document.createElement('div');
+            nestedContainer.className = 'nested-content';
+            nestedContainer.style.display = isExpanded ? 'block' : 'none';
+            
+            // Create nested table
+            if (isExpanded) {
+                const nestedTable = this.createTable(val, nestedPath);
+                nestedContainer.appendChild(nestedTable);
+            }
+            
+            header.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const currentlyExpanded = this.nestedStates[collapsedKey] !== false;
+                if (currentlyExpanded) {
+                    this.nestedStates[collapsedKey] = false;
+                    header.classList.remove('expanded');
+                    nestedContainer.style.display = 'none';
+                    nestedContainer.innerHTML = '';
+                } else {
+                    this.nestedStates[collapsedKey] = true;
+                    header.classList.add('expanded');
+                    nestedContainer.style.display = 'block';
+                    const nestedTable = this.createTable(val, nestedPath);
+                    nestedContainer.innerHTML = '';
+                    nestedContainer.appendChild(nestedTable);
+                }
+            });
+            
+            td.appendChild(header);
+            td.appendChild(nestedContainer);
+        } else {
+            // Primitive value
+            const span = document.createElement('span');
+            const type = typeof val;
+            span.className = `cell-value ${type}`;
+            span.setAttribute('data-path', path);
+            span.setAttribute('data-key', key);
+            span.setAttribute('data-type', type);
+            span.setAttribute('contenteditable', 'true');
+            
+            if (type === 'string') {
+                span.textContent = val;
+            } else if (type === 'number') {
+                span.textContent = String(val);
+            } else if (type === 'boolean') {
+                span.textContent = String(val);
+            }
+            
+            span.addEventListener('blur', (e) => this.commitEdit(e, path, type));
+            span.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    span.blur();
+                }
+            });
+            
+            td.appendChild(span);
+        }
+    },
+
+    summarize(val) {
+        if (Array.isArray(val)) {
+            if (val.length === 0) return '[]';
+            const first = val[0];
+            if (typeof first === 'object' && first !== null) {
+                return `[{...}, ...]`;
+            }
+            return JSON.stringify(val).substring(0, 30) + (JSON.stringify(val).length > 30 ? '...' : '');
+        }
+        if (typeof val === 'object' && val !== null) {
+            const keys = Object.keys(val);
+            if (keys.length === 0) return '{}';
+            return '{' + keys.slice(0, 2).join(', ') + (keys.length > 2 ? ', ...' : '') + '}';
+        }
+        return '';
+    },
+
+    // ===== Editing =====
+    handleCellEdit(e) {
+        // Cell edit is handled by blur event
+    },
+
+    commitEdit(e, path, oldType) {
+        const span = e.target;
+        const raw = span.textContent.trim();
+        const newVal = this.parseValue(raw);
+        
+        if (newVal.error) {
+            // Restore old value on parse error
+            this.setStatus('值格式错误: ' + newVal.error, true);
+            this.render(); // Re-render to restore
+            return;
+        }
+        
+        try {
+            this.setValueAtPath(this.data, path, newVal.value);
+            this.setStatus('已更新: ' + path);
+            // Re-render to reflect changes
+            this.render();
+        } catch(err) {
+            this.setStatus('更新失败: ' + err.message, true);
+        }
+    },
+
+    parseValue(raw) {
+        if (raw === 'null' || raw === '') return { value: null };
+        if (raw === 'true') return { value: true };
+        if (raw === 'false') return { value: false };
+        
+        // Try number
+        if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(raw)) {
+            return { value: Number(raw) };
+        }
+        
+        // Try JSON parse (for objects/arrays typed inline)
+        if ((raw.startsWith('{') && raw.endsWith('}')) || 
+            (raw.startsWith('[') && raw.endsWith(']'))) {
+            try {
+                return { value: JSON.parse(raw) };
+            } catch(e) {
+                return { error: e.message };
+            }
+        }
+        
+        // Return as string
+        return { value: raw };
+    },
+
+    setValueAtPath(obj, path, value) {
+        if (!path) {
+            // Replacing root
+            this.data = value;
+            return;
+        }
+        
+        // Parse path like "employees[0].name" or "employees[0].projects[1].name"
+        const parts = this.parsePath(path);
+        let current = obj;
+        
+        for (let i = 0; i < parts.length - 1; i++) {
+            const part = parts[i];
+            if (typeof part === 'number') {
+                if (!Array.isArray(current)) throw new Error(`Path part ${part} is number but current is not array`);
+                if (current[part] === undefined) current[part] = {};
+                current = current[part];
+            } else {
+                if (current[part] === undefined) current[part] = {};
+                current = current[part];
+            }
+        }
+        
+        const lastPart = parts[parts.length - 1];
+        if (typeof lastPart === 'number') {
+            if (!Array.isArray(current)) throw new Error('Cannot index into non-array');
+            current[lastPart] = value;
+        } else {
+            current[lastPart] = value;
+        }
+    },
+
+    parsePath(path) {
+        // "employees[0].projects[1].name" -> ["employees", 0, "projects", 1, "name"]
+        const parts = [];
+        const regex = /([^\[\].]+)|\[(\d+)\]/g;
+        let match;
+        while ((match = regex.exec(path)) !== null) {
+            if (match[1] !== undefined) {
+                parts.push(match[1]);
+            } else if (match[2] !== undefined) {
+                parts.push(parseInt(match[2]));
+            }
+        }
+        return parts;
+    },
+
+    getValueAtPath(obj, path) {
+        if (!path) return obj;
+        const parts = this.parsePath(path);
+        let current = obj;
+        for (const part of parts) {
+            if (current === null || current === undefined) return undefined;
+            if (typeof part === 'number') {
+                current = current[part];
+            } else {
+                current = current[part];
+            }
+        }
+        return current;
+    },
+
+    // ===== Row Operations =====
+    addRow(arrayPath) {
+        const arr = this.getValueAtPath(this.data, arrayPath);
+        if (!Array.isArray(arr)) return this.setStatus('路径不是数组', true);
+        
+        // Determine template from first element
+        let template = null;
+        if (arr.length > 0) {
+            const first = arr[0];
+            if (typeof first === 'object' && !Array.isArray(first)) {
+                template = {};
+                for (const key of Object.keys(first)) {
+                    template[key] = null;
+                }
+            }
+        }
+        
+        arr.push(template);
+        this.nestedStates = {}; // reset collapse states
+        this.render();
+        this.setStatus('已添加新行');
+    },
+
+    deleteRow(arrayPath, index) {
+        const parentPath = arrayPath;
+        const arr = this.getValueAtPath(this.data, parentPath);
+        if (!Array.isArray(arr)) return;
+        
+        arr.splice(index, 1);
+        this.nestedStates = {};
+        this.render();
+        this.setStatus(`已删除行 [${index}]`);
+    },
+
+    // ===== Keyboard =====
+    handleKeydown(e) {
+        if (e.key === 'Tab' && e.target.classList.contains('cell-value')) {
+            // Allow tab navigation between cells
+            e.preventDefault();
+            const allCells = [...document.querySelectorAll('.cell-value[contenteditable]')];
+            const idx = allCells.indexOf(e.target);
+            const next = (idx + 1) % allCells.length;
+            allCells[next]?.focus();
+        }
+    },
+
+    // ===== Table Click =====
+    handleTableClick(e) {
+        // Handle right-click for context menu
+        if (e.button === 2) {
+            // could add context menu here
+        }
+    },
+
+    // ===== Context Menu =====
+    showContextMenu(x, y, path) {
+        const menu = document.getElementById('contextMenu');
+        menu.innerHTML = `
+            <div class="menu-item" data-action="edit">✏️ 编辑</div>
+            <div class="menu-item" data-action="copy-path">📋 复制路径</div>
+            <div class="divider"></div>
+            <div class="menu-item" data-action="wrap-object">📦 包装为对象</div>
+            <div class="menu-item" data-action="wrap-array">📋 包装为数组</div>
+        `;
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+        menu.classList.add('show');
+        menu.setAttribute('data-path', path);
+    },
+
+    hideContextMenu() {
+        document.getElementById('contextMenu').classList.remove('show');
+    },
+};
+
+// Initialize
+App.init();
+
+// Allow global access for debugging
+window.App = App;
+</script>
+</body>
+</html>
