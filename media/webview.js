@@ -230,6 +230,9 @@ const App = {
     document.addEventListener("cut", (e) => this.handleCut(e));
     window.addEventListener("pagehide", () => this.saveUIState());
     window.addEventListener("beforeunload", () => this.saveUIState());
+    document.addEventListener("mousemove", (e) =>
+      this.handleDocumentMouseMove(e),
+    );
     document.addEventListener("mouseup", () => this.finishMouseSelection());
     document.addEventListener("click", () => this.hideContextMenu());
     document
@@ -3656,10 +3659,28 @@ const App = {
       this.fillSourceRect = null;
       return;
     }
-    if (this.isMouseSelecting && this.mouseSelectionMoved) {
+    if (
+      this.isMouseSelecting &&
+      (this.mouseSelectionMoved || this.hasRangeSelection())
+    ) {
       this.suppressNextClickSelection = true;
     }
     this.isMouseSelecting = false;
+  },
+
+  handleDocumentMouseMove(e) {
+    if (!this.isMouseSelecting || !this.selectionAnchorCell) return;
+    const target = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = this.getSelectableCellFromTarget(target);
+    if (!cell) return;
+
+    e.preventDefault();
+    window.getSelection()?.removeAllRanges();
+
+    if (cell !== this.selectionAnchorCell) {
+      this.mouseSelectionMoved = true;
+    }
+    this.selectRange(this.selectionAnchorCell, cell);
   },
 
   handleTableDoubleClick(e) {
