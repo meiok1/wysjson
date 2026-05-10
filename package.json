@@ -1,0 +1,81 @@
+{
+  "name": "wysjson",
+  "displayName": "wysJSON - Nested JSON Table Editor for VS Code",
+  "description": "Visual editor for JavaScript JSON data literals with table UI, integrated into VS Code. Right-click on JS/TS data to edit in a spreadsheet-like interface.",
+  "version": "0.1.0",
+  "publisher": "wys",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "json",
+    "table",
+    "editor",
+    "visual",
+    "spreadsheet"
+  ],
+  "icon": "media/icon.png",
+  "activationEvents": [
+    "onCommand:wysjson.openSelection"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "wysjson.openSelection",
+        "title": "wysJSON: 可视化编辑所选 JS 数据"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "wysjson.openSelection",
+          "when": "(editorLangId == javascript || editorLangId == typescript || editorLangId == javascriptreact || editorLangId == typescriptreact) && editorHasSelection",
+          "group": "1_modification"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "wysJSON",
+      "properties": {
+        "wysjson.supportedLanguages": {
+          "type": "array",
+          "default": [
+            "javascript",
+            "typescript",
+            "javascriptreact",
+            "typescriptreact"
+          ],
+          "description": "Languages where wysJSON right-click menu is shown"
+        }
+      }
+    }
+  },
+  "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@babel/generator": "^7.23.0",
+    "@babel/parser": "^7.23.0",
+    "@babel/types": "^7.23.0",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@babel/generator": "^7.23.0",
+    "@babel/parser": "^7.23.0",
+    "@babel/types": "^7.23.0"
+  }
+}

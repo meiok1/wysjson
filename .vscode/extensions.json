@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "ms-vscode.vscode-typescript-next",
+    "usernamehw.errorlens",
+    "ms-vscode.makefile-tools",
+    "ms-vscode-remote.remote-containers"
+  ]
+}

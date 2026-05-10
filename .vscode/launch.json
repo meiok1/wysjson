@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension (调试扩展)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "npm: compile",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true
+      }
+    },
+    {
+      "name": "Run Extension with Test Data (带测试数据)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "${workspaceFolder}/jsonDemo",
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "npm: compile",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": true,
+        "panel": "shared"
+      }
+    },
+    {
+      "name": "Attach to Running Extension (附加到正在运行的扩展)",
+      "type": "extensionHost",
+      "request": "attach",
+      "port": 9333
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Extension + Test (扩展+测试)",
+      "configurations": ["Run Extension with Test Data (带测试数据)"],
+      "preLaunchTask": "npm: compile"
+    }
+  ]
+}

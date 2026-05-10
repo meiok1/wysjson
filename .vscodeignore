@@ -1,0 +1,15 @@
+node_modules
+src
+test
+dist/*.map
+dist/*.d.ts
+.git
+.gitignore
+tsconfig.json
+webpack.config.js
+.env
+.mocharc.json
+代码备份/
+wysLog/
+jsonDemo/
+*.png
