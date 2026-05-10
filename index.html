@@ -372,6 +372,7 @@ body {
 
 .json-table td.is-selected::after {
     border-color: rgba(26, 115, 232, 0.95);
+    inset: 1.5px;
 }
 
 .json-table td.range-edge-top::before { border-top-width: 2px; }
@@ -394,6 +395,13 @@ body {
 .json-table td.is-hover-target:not(.is-selected):not(.is-editing) {
     background: var(--hover-bg);
 }
+
+/* Hide inline delete buttons (use context menu instead) */
+.json-table button.del { display: none !important; }
+
+/* Header / row highlight when single cell is selected */
+.json-table th.header-highlight { background: var(--accent-light); color: var(--accent); }
+.json-table td.row-num.row-highlight { background: var(--accent-light); color: var(--accent); }
 
 /* Row number cell */
 .json-table td.row-num {
@@ -430,6 +438,9 @@ body {
 
 .cell-value.null { color: #aaa; font-style: italic; }
 
+/* When editing a previously-null cell, show normal text style while editing */
+.json-table td.is-editing .cell-value.null { color: var(--text-color); font-style: normal; }
+
 .cell-value[contenteditable='false'] {
     cursor: default;
 }
@@ -456,6 +467,28 @@ body {
     color: var(--text-muted);
     background: var(--row-num-bg);
     border: 1px solid var(--grid-light);
+}
+
+/* Header editor input
+   support precise caret placement and simple styling */
+.header-editor {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    padding: 4px 8px;
+    font: inherit;
+    font-size: 11px;
+    outline: none;
+}
+
+/* toolbar checkbox label */
+.toolbar-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    font-size: 12px;
+    color: #444;
 }
 
 .nested-preview {
@@ -630,6 +663,9 @@ body {
     <button id="btnRedo" title="重做 (Ctrl+Y)">↪ 重做</button>
     <span class="sep"></span>
     <button id="btnSample" title="Load Sample Data">🧪 示例数据</button>
+    <span class="sep"></span>
+    <button id="btnClearNull" title="把所有 null 转为空字符串">🧹 清除null</button>
+    <label class="toolbar-checkbox"><input type="checkbox" id="chkNullAsString"> null as string</label>
 </div>
 
 <!-- Breadcrumb -->
@@ -690,6 +726,7 @@ const App = {
     editingHeader: null,
     pendingHeaderEdit: null,
     contextMenuState: null,
+    nullAsString: false,
     
     // --- Undo/Redo ---
     undoStack: [],
@@ -748,6 +785,10 @@ const App = {
         document.getElementById('tableView').addEventListener('mouseover', (e) => this.handleTableHover(e));
         document.getElementById('tableView').addEventListener('paste', (e) => this.handlePaste(e));
         document.getElementById('tableView').addEventListener('mouseleave', () => this.setHoveredCell(null));
+        const btnClearNull = document.getElementById('btnClearNull');
+        if (btnClearNull) btnClearNull.addEventListener('click', () => this.clearAllNulls());
+        const chk = document.getElementById('chkNullAsString');
+        if (chk) chk.addEventListener('change', (e) => { this.nullAsString = !!e.target.checked; });
         document.addEventListener('copy', (e) => this.handleCopy(e));
         document.addEventListener('cut', (e) => this.handleCut(e));
         document.addEventListener('mouseup', () => this.finishMouseSelection());
@@ -1008,12 +1049,19 @@ const App = {
         // Determine if data is array or object
         const isArray = Array.isArray(data);
         const rows = isArray ? data : [data];
+        const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+        const isPureObjectArray = isArray && rows.length > 0 && rows.every((row) => isPlainObject(row));
+
+        // Mixed arrays must render row-by-row so each element can recurse independently.
+        if (isArray && !isPureObjectArray) {
+            return this.createSimpleView(data, path, true);
+        }
         
         // Collect all keys across all rows
         const allKeys = [];
         const seenKeys = new Set();
         for (const row of rows) {
-            if (row !== null && typeof row === 'object' && !Array.isArray(row)) {
+            if (isPlainObject(row)) {
                 for (const key of Object.keys(row)) {
                     if (!seenKeys.has(key)) {
                         seenKeys.add(key);
@@ -1023,7 +1071,7 @@ const App = {
             }
         }
         
-        // If no keys (empty or primitives array), render simple view
+        // If no keys (empty array / primitive / empty object), render simple view.
         if (allKeys.length === 0) {
             return this.createSimpleView(data, path, isArray);
         }
@@ -1037,12 +1085,10 @@ const App = {
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
         
-        // Row number column for arrays
-        if (isArray) {
-            const th = document.createElement('th');
-            th.className = 'row-num-header';
-            headerRow.appendChild(th);
-        }
+        // Row number column (show for arrays and objects — objects get a single row index)
+        const thRowNum = document.createElement('th');
+        thRowNum.className = 'row-num-header';
+        headerRow.appendChild(thRowNum);
         
         for (const key of allKeys) {
             const th = document.createElement('th');
@@ -1121,20 +1167,35 @@ const App = {
             const tr = document.createElement('tr');
             tr.setAttribute('data-path', rowPath);
             
-            // Row number (Excel-style)
-            if (isArray) {
-                const td = document.createElement('td');
-                td.className = 'row-num';
-                td.textContent = i + 1;
-                td.title = '点击删除此行';
-                td.setAttribute('data-row-index', i);
-                td.setAttribute('data-array-path', path);
-                td.addEventListener('click', (e) => {
-                    e.stopPropagation();
+            // Row number (Excel-style) — show for arrays and objects
+            const td = document.createElement('td');
+            td.className = 'row-num';
+            td.textContent = i + 1;
+            td.title = isArray ? '点击删除/右键改变类型' : '对象：点击设为 null / 右键改变类型';
+            td.setAttribute('data-row-index', i);
+            td.setAttribute('data-array-path', path);
+            td.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isArray) {
                     if (confirm('删除第 ' + (i+1) + ' 行？')) this.deleteRow(path, i);
+                } else {
+                    if (confirm('将此对象设为 null？')) {
+                        this.pushUndo();
+                        this.setValueAtPath(this.data, path, this.nullAsString ? '' : null);
+                        this.render();
+                    }
+                }
+            });
+            td.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.showContextMenu(e.clientX, e.clientY, {
+                    type: 'row',
+                    path: rowPath,
+                    value: row,
                 });
-                tr.appendChild(td);
-            }
+            });
+            tr.appendChild(td);
             
             for (const key of allKeys) {
                 const td = document.createElement('td');
@@ -1204,12 +1265,15 @@ const App = {
         
         const table = document.createElement('table');
         table.className = 'json-table';
+        table.setAttribute('data-path', path || '');
+        table.setAttribute('data-is-array', isArray ? 'true' : 'false');
         
         if (isArray) {
-            // Array of primitives
+            // Array rendered row-by-row. Supports primitives, objects, arrays, and mixed content.
             const thead = document.createElement('thead');
             const thRow = document.createElement('tr');
             const thIdx = document.createElement('th');
+            thIdx.className = 'row-num-header';
             thIdx.textContent = '#';
             thIdx.style.width = '48px';
             thIdx.style.textAlign = 'center';
@@ -1229,9 +1293,18 @@ const App = {
                 tdIdx.style.color = 'var(--text-muted)';
                 tdIdx.style.fontSize = '11px';
                 tdIdx.textContent = i + 1;
-                tdIdx.title = '右键删除此项';
+                tdIdx.title = '右键改变类型';
                 tdIdx.setAttribute('data-row-index', i);
                 tdIdx.setAttribute('data-array-path', path);
+                tdIdx.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.showContextMenu(e.clientX, e.clientY, {
+                        type: 'row',
+                        path: `${path}[${i}]`,
+                        value: data[i],
+                    });
+                });
                 tr.appendChild(tdIdx);
                 
                 const tdVal = document.createElement('td');
@@ -1263,10 +1336,22 @@ const App = {
     },
 
     renderCell(td, val, path, key) {
+        // 通用属性
+        td.setAttribute('data-path', path);
+        td.setAttribute('data-key', key);
+        td.classList.add('cell-value-wrapper');
+        td.setAttribute('tabindex', '-1');
+        // 右键菜单
+        td.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.showContextMenu(e.clientX, e.clientY, {
+                type: 'cell',
+                path,
+                value: val
+            });
+        });
         if (val === null || val === undefined) {
-            td.classList.add('cell-value-wrapper');
-            td.setAttribute('tabindex', '-1');
-            td.setAttribute('data-path', path);
             td.setAttribute('data-editable', 'true');
             const span = document.createElement('span');
             span.className = 'cell-value null';
@@ -1279,13 +1364,10 @@ const App = {
             td.appendChild(span);
         } else if (typeof val === 'object') {
             // Nested object/array — controlled by column header toggle
-            td.classList.add('cell-nested');
-            td.setAttribute('tabindex', '-1');
-            td.setAttribute('data-path', path);
             td.setAttribute('data-editable', 'false');
+            td.classList.add('cell-nested');
             const collKey = this.getColumnStateKey(path);
             const isExpanded = this.columnStates[collKey] !== false;
-
             if (isExpanded) {
                 const nestedContainer = document.createElement('div');
                 nestedContainer.className = 'nested-content';
@@ -1293,28 +1375,21 @@ const App = {
                 td.appendChild(nestedContainer);
             } else {
                 td.classList.add('is-collapsed');
-
                 const preview = document.createElement('div');
                 preview.className = 'nested-preview';
-
                 const badge = document.createElement('span');
                 badge.className = 'nested-badge';
                 badge.textContent = Array.isArray(val) ? `[${val.length}]` : `{${Object.keys(val).length}}`;
                 preview.appendChild(badge);
-
                 const summary = document.createElement('span');
                 summary.className = 'nested-summary-text';
                 summary.textContent = this.summarize(val);
                 summary.title = summary.textContent;
                 preview.appendChild(summary);
-
                 td.appendChild(preview);
             }
         } else {
             // Primitive value
-            td.classList.add('cell-value-wrapper');
-            td.setAttribute('tabindex', '-1');
-            td.setAttribute('data-path', path);
             td.setAttribute('data-editable', 'true');
             const span = document.createElement('span');
             const type = typeof val;
@@ -1324,15 +1399,7 @@ const App = {
             span.setAttribute('data-type', type);
             span.setAttribute('contenteditable', 'false');
             span.setAttribute('spellcheck', 'false');
-            
-            if (type === 'string') {
-                span.textContent = val;
-            } else if (type === 'number') {
-                span.textContent = String(val);
-            } else if (type === 'boolean') {
-                span.textContent = String(val);
-            }
-            
+            span.textContent = String(val);
             td.appendChild(span);
         }
     },
@@ -1366,6 +1433,33 @@ const App = {
         input.setSelectionRange(0, input.value.length);
     },
 
+    // Place caret inside a text input based on clientX coordinate
+    setInputCaretFromPoint(input, clientX) {
+        if (!input) return;
+        const rect = input.getBoundingClientRect();
+        const style = window.getComputedStyle(input);
+        const paddingLeft = parseFloat(style.paddingLeft || 0);
+        const x = clientX - rect.left - paddingLeft;
+        const text = input.value || '';
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.font = style.font || `${style.fontSize} ${style.fontFamily}`;
+
+        // Binary search character index by measured width
+        let low = 0, high = text.length;
+        while (low < high) {
+            const mid = Math.floor((low + high) / 2);
+            const w = ctx.measureText(text.slice(0, mid)).width;
+            if (w < x) low = mid + 1; else high = mid;
+        }
+        let idx = Math.max(0, low - 1);
+        // refine: if next char is closer, use it
+        const w1 = ctx.measureText(text.slice(0, idx)).width;
+        const w2 = ctx.measureText(text.slice(0, idx + 1)).width;
+        if (Math.abs(w2 - x) < Math.abs(w1 - x)) idx = idx + 1;
+        input.setSelectionRange(idx, idx);
+    },
+
     beginHeaderEdit(th, options = {}) {
         if (!this.isEditableHeader(th)) return;
         if (this.editingHeader && this.editingHeader !== th) {
@@ -1389,7 +1483,8 @@ const App = {
         input.dataset.originalValue = originalValue;
         th.appendChild(input);
         this.editingHeader = th;
-
+        input.addEventListener('mousedown', (e) => e.stopPropagation());
+        input.addEventListener('pointerdown', (e) => e.stopPropagation());
         input.addEventListener('click', (e) => e.stopPropagation());
         input.addEventListener('dblclick', (e) => e.stopPropagation());
         input.addEventListener('keydown', (e) => {
@@ -1407,6 +1502,11 @@ const App = {
 
         if (options.selectAll) {
             requestAnimationFrame(() => this.selectHeaderText(input));
+        } else if (typeof options.clientX === 'number') {
+            requestAnimationFrame(() => {
+                input.focus();
+                this.setInputCaretFromPoint(input, options.clientX);
+            });
         } else {
             requestAnimationFrame(() => input.focus());
         }
@@ -1609,6 +1709,32 @@ const App = {
         td.classList.remove('is-hover-target');
         td.classList.add('is-selected');
         this.updateRangeVisuals();
+
+        // Highlight matching header and row number when a single cell is selected
+        this.clearHeaderRowHighlights();
+        const selectedCells = this.getSelectedCells();
+        if (selectedCells.length === 1) {
+            const coords = this.getCellCoordinates(selectedCells[0]);
+            if (coords && coords.table) {
+                const table = coords.table;
+                const { rowIndex, colIndex } = coords;
+                const isArray = table.dataset.isArray === 'true';
+                if (table.tHead && table.tHead.rows.length > 0) {
+                    const thRow = table.tHead.rows[0];
+                    const thIndex = colIndex + (isArray ? 1 : 0);
+                    const th = thRow.children[thIndex];
+                    if (th) th.classList.add('header-highlight');
+                }
+                if (isArray) {
+                    const rowEl = table.tBodies[0].rows[rowIndex];
+                    if (rowEl) {
+                        const rowNumCell = rowEl.querySelector('td.row-num');
+                        if (rowNumCell) rowNumCell.classList.add('row-highlight');
+                    }
+                }
+            }
+        }
+
         td.focus({ preventScroll: true });
     },
 
@@ -1617,6 +1743,12 @@ const App = {
         if (this.selectedCell) this.selectedCell.classList.remove('is-selected');
         this.selectedCell = null;
         this.selectionAnchorCell = null;
+        this.clearHeaderRowHighlights();
+    },
+
+    clearHeaderRowHighlights() {
+        document.querySelectorAll('th.header-highlight').forEach((th) => th.classList.remove('header-highlight'));
+        document.querySelectorAll('td.row-num.row-highlight').forEach((td) => td.classList.remove('row-highlight'));
     },
 
     getCellCoordinates(td) {
@@ -2061,38 +2193,21 @@ const App = {
         // Parse path like "employees[0].name" or "employees[0].projects[1].name"
         const parts = this.parsePath(path);
         let current = obj;
-        
         for (let i = 0; i < parts.length - 1; i++) {
-            const part = parts[i];
-            if (typeof part === 'number') {
-                if (!Array.isArray(current)) throw new Error(`Path part ${part} is number but current is not array`);
-                if (current[part] === undefined) current[part] = {};
-                current = current[part];
-            } else {
-                if (current[part] === undefined) current[part] = {};
-                current = current[part];
-            }
+            current = current[parts[i]];
         }
-        
-        const lastPart = parts[parts.length - 1];
-        if (typeof lastPart === 'number') {
-            if (!Array.isArray(current)) throw new Error('Cannot index into non-array');
-            current[lastPart] = value;
-        } else {
-            current[lastPart] = value;
-        }
+        current[parts[parts.length - 1]] = value;
     },
 
     parsePath(path) {
-        // "employees[0].projects[1].name" -> ["employees", 0, "projects", 1, "name"]
         const parts = [];
-        const regex = /([^\[\].]+)|\[(\d+)\]/g;
+        const regex = /([^\.\[\]]+)|\[(\d+)\]/g;
         let match;
         while ((match = regex.exec(path)) !== null) {
             if (match[1] !== undefined) {
                 parts.push(match[1]);
             } else if (match[2] !== undefined) {
-                parts.push(parseInt(match[2]));
+                parts.push(parseInt(match[2], 10));
             }
         }
         return parts;
@@ -2119,16 +2234,21 @@ const App = {
         if (!Array.isArray(arr)) return this.setStatus('路径不是数组', true);
         this.pushUndo();
         let template = null;
-        if (arr.length > 0) {
+        if (arr.length === 0) {
+            // Unknown element type; default to '' if nullAsString, otherwise null
+            template = this.nullAsString ? '' : null;
+        } else {
             const first = arr[0];
             if (typeof first === 'object' && !Array.isArray(first)) {
                 template = {};
                 for (const key of Object.keys(first)) {
-                    template[key] = null;
+                    template[key] = this.nullAsString ? '' : null;
                 }
+            } else {
+                // primitive array
+                template = this.nullAsString ? '' : null;
             }
         }
-        
         arr.push(template);
         this.nestedStates = {}; // reset collapse states
         this.render();
@@ -2143,7 +2263,7 @@ const App = {
 
         const newKey = this.getNextColumnName(target);
         this.pushUndo();
-        target[newKey] = null;
+        target[newKey] = this.nullAsString ? '' : null;
         this.pendingHeaderEdit = { path: objectPath || '', key: newKey };
         this.render();
         this.setStatus('已添加新列，请输入列标题');
@@ -2395,7 +2515,7 @@ const App = {
         const header = this.getHeaderFromTarget(e.target);
         if (header && !e.target.closest('.nested-toggle, .col-resizer')) {
             e.preventDefault();
-            this.beginHeaderEdit(header, { selectAll: true });
+            this.beginHeaderEdit(header, { clientX: e.clientX, clientY: e.clientY });
             return;
         }
 
@@ -2466,17 +2586,20 @@ const App = {
     },
 
     handleTableContextMenu(e) {
-        const rowNum = e.target.closest('td.row-num[data-row-index][data-array-path]');
-        if (rowNum) {
+        // 保持 corner、header 菜单
+        const cornerTh = e.target.closest('th.row-num-header');
+        if (cornerTh && cornerTh.closest('table.json-table')) {
             e.preventDefault();
+            const table = cornerTh.closest('table.json-table');
             this.showContextMenu(e.clientX, e.clientY, {
-                type: 'delete-row',
-                arrayPath: rowNum.dataset.arrayPath || '',
-                rowIndex: Number(rowNum.dataset.rowIndex),
+                type: 'corner',
+                tablePath: table.dataset.path || '',
+                isArray: table.dataset.isArray === 'true',
+                tableId: table.dataset.path || ''
             });
             return;
         }
-
+        // cell/行号右键已在renderCell和createTable里处理，这里只保留header
         const header = this.getHeaderFromTarget(e.target);
         if (header && !e.target.closest('.nested-toggle, .col-resizer')) {
             e.preventDefault();
@@ -2492,18 +2615,122 @@ const App = {
         const item = e.target.closest('.menu-item[data-action]');
         if (!item || !this.contextMenuState) return;
         e.stopPropagation();
-
         const action = item.dataset.action;
         const state = this.contextMenuState;
         this.hideContextMenu();
 
+        // cell/row类型切换
+        const convertValue = (val, type) => {
+            if (type === 'array') return Array.isArray(val) ? val : [val];
+            if (type === 'object') {
+                if (val && typeof val === 'object' && !Array.isArray(val)) return val;
+                if (Array.isArray(val)) {
+                    // 若首元素为object直接用，否则包value
+                    const first = val.length > 0 ? val[0] : null;
+                    if (first && typeof first === 'object' && !Array.isArray(first)) return first;
+                    return { value: first ?? null };
+                }
+                return { value: val };
+            }
+            if (type === 'single') {
+                // 递归只保留第一个元素/字段的值
+                if (Array.isArray(val)) {
+                    if (val.length === 0) return null;
+                    return convertValue(val[0], 'single');
+                }
+                if (val && typeof val === 'object') {
+                    const keys = Object.keys(val);
+                    if (keys.length === 0) return null;
+                    return convertValue(val[keys[0]], 'single');
+                }
+                return val;
+            }
+            if (type === 'string') return val == null ? '' : String(val);
+            if (type === 'number') return Number(val) || 0;
+            if (type === 'boolean') return Boolean(val);
+            if (type === 'null') return null;
+            return val;
+        };
+
+        if (state.type === 'cell' || state.type === 'row') {
+            const path = state.path;
+            if (!path) return;
+            this.pushUndo();
+            let newValue;
+            if (action.startsWith('convert-to-')) {
+                const type = action.replace('convert-to-', '');
+                newValue = convertValue(state.value, type);
+                this.setValueAtPath(this.data, path, newValue);
+                this.render();
+                this.setStatus(`已将节点 ${path} 改为 ${type}`);
+                return;
+            }
+        }
+
+        // 其它原有逻辑...
         if (action === 'delete-row') {
             this.deleteRow(state.arrayPath || '', state.rowIndex);
             return;
         }
-
         if (action === 'delete-column') {
             this.deleteColumn(state.path || '', state.key || '');
+        }
+        if (action === 'set-object-null') {
+            this.pushUndo();
+            this.setValueAtPath(this.data, state.path || '', this.nullAsString ? '' : null);
+            this.render();
+            this.setStatus('已将对象设为 null');
+            return;
+        }
+        // 保持原有corner批量转换
+        const getContextTargetPaths = () => {
+            const selectedCells = this.getSelectedCells();
+            let selectedPaths = Array.from(new Set(selectedCells
+                .map((cell) => cell.dataset.path || cell.querySelector('.cell-value')?.dataset.path || '')
+                .filter(Boolean)));
+            if (selectedPaths.length === 0 && state?.tablePath) {
+                selectedPaths = [state.tablePath];
+            }
+            const sorted = [...selectedPaths].sort((a, b) => a.length - b.length);
+            const targetPaths = [];
+            for (const path of sorted) {
+                if (!path) continue;
+                const covered = targetPaths.some((parent) => path === parent || path.startsWith(parent + '.') || path.startsWith(parent + '['));
+                if (!covered) targetPaths.push(path);
+            }
+            return targetPaths;
+        };
+        const convertNodeValue = (currentValue, targetType) => convertValue(currentValue, targetType);
+        if (action === 'clear-selection') {
+            const targetPaths = getContextTargetPaths();
+            if (targetPaths.length === 0) {
+                this.setStatus('当前没有选区可删除', true);
+                return;
+            }
+            this.pushUndo();
+            for (const path of targetPaths) {
+                this.setValueAtPath(this.data, path, null);
+            }
+            this.render();
+            this.setStatus(`已删除 ${targetPaths.length} 个选区节点（置为 null）`);
+            return;
+        }
+        if (action === 'convert-to-array' || action === 'convert-to-object' || action === 'convert-to-single') {
+            const targetType = action.replace('convert-to-', '');
+            const targetPaths = getContextTargetPaths();
+            if (targetPaths.length === 0) {
+                this.setStatus('当前没有选区可转换', true);
+                return;
+            }
+            this.pushUndo();
+            for (const path of targetPaths) {
+                const currentValue = this.getValueAtPath(this.data, path);
+                const nextValue = convertNodeValue(currentValue, targetType);
+                this.setValueAtPath(this.data, path, nextValue);
+            }
+            this.render();
+            this.setStatus(`已将 ${targetPaths.length} 个节点改为 ${targetType}`);
+            return;
         }
     },
 
@@ -2511,16 +2738,63 @@ const App = {
     showContextMenu(x, y, state) {
         const menu = document.getElementById('contextMenu');
         this.contextMenuState = state;
-        if (state?.type === 'delete-row') {
+        // cell/row类型切换菜单
+        if (state?.type === 'cell' || state?.type === 'row') {
+            menu.innerHTML = `
+                <div class="menu-item" data-action="convert-to-array">🔁 改变类型 → Array</div>
+                <div class="menu-item" data-action="convert-to-object">🔁 改变类型 → Object</div>
+                <div class="menu-item" data-action="convert-to-single">🔁 改变类型 → 单值</div>
+                <div class="menu-item" data-action="convert-to-string">🔁 改变类型 → String</div>
+                <div class="menu-item" data-action="convert-to-number">🔁 改变类型 → Number</div>
+                <div class="menu-item" data-action="convert-to-boolean">🔁 改变类型 → Boolean</div>
+                <div class="menu-item" data-action="convert-to-null">🔁 改变类型 → Null</div>
+            `;
+        } else if (state?.type === 'delete-row') {
             menu.innerHTML = `<div class="menu-item" data-action="delete-row">🗑 删除第 ${state.rowIndex + 1} 行</div>`;
         } else if (state?.type === 'delete-column') {
             menu.innerHTML = `<div class="menu-item" data-action="delete-column">🗑 删除列 ${state.key}</div>`;
+        } else if (state?.type === 'set-object-null') {
+            menu.innerHTML = `<div class="menu-item" data-action="set-object-null">🗑 将对象设为 null</div>`;
+        } else if (state?.type === 'corner') {
+            // Per-table corner: delete selected nodes by setting them to null
+            menu.innerHTML = `
+                <div class="menu-item" data-action="clear-selection">🗑 删除选区节点（置为 null）</div>
+                <div class="divider"></div>
+                <div class="menu-item" data-action="convert-to-array">🔁 改变节点类型 → Array</div>
+                <div class="menu-item" data-action="convert-to-object">🔁 改变节点类型 → Object</div>
+                <div class="menu-item" data-action="convert-to-single">🔁 改变节点类型 → 单值</div>
+            `;
         } else {
             menu.innerHTML = '';
         }
         menu.style.left = x + 'px';
         menu.style.top = y + 'px';
         menu.classList.add('show');
+    },
+
+    // ===== Null Utilities =====
+    clearAllNulls() {
+        if (!this.data) return this.setStatus('没有数据可操作', true);
+        this.pushUndo();
+        const replace = (node) => {
+            if (node === null) return '';
+            if (Array.isArray(node)) {
+                for (let i = 0; i < node.length; i++) {
+                    node[i] = replace(node[i]);
+                }
+                return node;
+            }
+            if (typeof node === 'object') {
+                for (const k of Object.keys(node)) {
+                    node[k] = replace(node[k]);
+                }
+                return node;
+            }
+            return node;
+        };
+        replace(this.data);
+        this.render();
+        this.setStatus('已将所有 null 转为空字符串');
     },
 
     hideContextMenu() {
