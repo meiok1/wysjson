@@ -42,6 +42,13 @@
 - corner 菜单是当前表/选区级别的节点操作
 - `单值` 的规则是递归取第一个元素或第一个字段的值
 
+## VS Code 插件迁移踩坑
+
+已验证过两类问题，后续再碰到同类交互，优先按下面思路排查：
+
+- Webview 里的多单元格拖拽选择，不能只依赖 table 内部的 `mouseover`。在 VS Code Webview 中，拖拽结束后会出现额外 click，把范围选区重新压回单格。稳定做法是：拖拽时用 document 级 `mousemove + elementFromPoint()` 跟踪目标 cell，并在 `#tableView` 的 click 捕获阶段吞掉拖拽结束后的那次 click。对应实现见 `media/webview.js`。
+- Webview 中非编辑态 cell 必须禁用原生文本选择，编辑态再恢复；同时要去掉 selectable td 的默认 focus outline。否则会出现“文本被蓝色选中”或“最后一个 cell 只有黄色焦点框”的假象，干扰多选判断。对应样式见 `media/webview.css`。
+
 ## 当前最重要的文件
 
 - `index.html`

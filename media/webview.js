@@ -174,6 +174,9 @@ const App = {
     }
     document
       .getElementById("tableView")
+      .addEventListener("click", (e) => this.handleTableClickCapture(e), true);
+    document
+      .getElementById("tableView")
       .addEventListener("click", (e) => this.handleTableClick(e));
     document
       .getElementById("tableView")
@@ -3679,8 +3682,17 @@ const App = {
 
     if (cell !== this.selectionAnchorCell) {
       this.mouseSelectionMoved = true;
+      this.suppressNextClickSelection = true;
     }
     this.selectRange(this.selectionAnchorCell, cell);
+  },
+
+  handleTableClickCapture(e) {
+    if (!this.suppressNextClickSelection) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.suppressNextClickSelection = false;
+    this.mouseSelectionMoved = false;
   },
 
   handleTableDoubleClick(e) {
@@ -3931,6 +3943,7 @@ const App = {
     // 保持原有corner批量转换
     const getContextTargetPaths = () => {
       const selectedCells = this.getSelectedCells();
+      // Keep empty string (root) as a valid path; only filter out null/undefined
       let selectedPaths = Array.from(
         new Set(
           selectedCells
@@ -3940,16 +3953,18 @@ const App = {
                 cell.querySelector(".cell-value")?.dataset.path ||
                 "",
             )
-            .filter(Boolean),
+            .filter((p) => p !== undefined && p !== null),
         ),
       );
-      if (selectedPaths.length === 0 && state?.tablePath) {
+      // If no selected paths, fall back to state.tablePath when it exists (allow empty string)
+      if (selectedPaths.length === 0 && state && state.tablePath !== undefined) {
         selectedPaths = [state.tablePath];
       }
       const sorted = [...selectedPaths].sort((a, b) => a.length - b.length);
       const targetPaths = [];
       for (const path of sorted) {
-        if (!path) continue;
+        // only skip null/undefined; allow empty string as root path
+        if (path === null || path === undefined) continue;
         const covered = targetPaths.some(
           (parent) =>
             path === parent ||

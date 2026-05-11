@@ -73,8 +73,22 @@ const complexData = {
 const simpleArray = ["apple", "banana", "cherry", "date", "elderberry", "11", 11, 11, 11]
 
 // Test 5: Array of objects
-const arrayOfObjects = [
-  { x: 10, y: 20 },
-  { x: 30, y: 40 },
-  { x: 50, y: 60 }
-];
+[{
+  x: 333,
+  y: 333
+}, {
+  x: 333,
+  y: 333
+}, {
+  x: 333,
+  y: 333
+}, {
+  x: 333,
+  y: 333
+}, {
+  x: 333,
+  y: 333
+}, {
+  x: 10,
+  y: 10
+}]
