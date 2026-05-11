@@ -155,7 +155,11 @@ async function handleOpenSelection() {
       id === "javascriptreact" ||
       id === "typescript" ||
       id === "typescriptreact";
-    const isPlainTextLanguage = (id: string) => id === "plaintext";
+    // Treat any non-markdown and non-JS/TS file as plain-text-like for structural
+    // extraction so cursor-based detection works in arbitrary file types
+    // (including .json, .yaml, XML, etc.). This avoids enumerating language ids.
+    const isPlainTextLanguage = (id: string) =>
+      id !== "markdown" && !isJsTsLanguage(id);
 
     // If this is a Markdown file, try to detect a fenced code block around the cursor
     if (document.languageId === "markdown") {
@@ -545,6 +549,8 @@ function getWebviewContent(
   <span class="title">📋 wysJSON</span>
   <button id="btnSave" class="accent" title="Save to source file">💾 Save</button>
   <button id="btnCancel" title="Close editor">✕ Cancel</button>
+  <button id="btnFocusTopLeft" title="Focus Top-Left">↖ Focus</button>
+  <button id="btnHandTool" title="Toggle Hand Tool">🖐 Hand</button>
   <select id="languageSelect" class="language-select" title="Language">
     <option value="auto">🌐 Auto</option>
     <option value="en">English</option>
