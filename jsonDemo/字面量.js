@@ -1,11 +1,11 @@
 // 对象字面量示例
 // 使用字面量语法创建对象
 let person = {
-    name: "Alice",
-    age: 25,
-    greet: function() {
-        console.log("Hello, " + this.name);
-    }
+  name: "Alice",
+  age: 25,
+  greet: function () {
+    console.log("Hello, " + this.name);
+  },
 };
 
 // person 是一个对象实例
