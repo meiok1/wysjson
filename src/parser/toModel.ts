@@ -3,9 +3,9 @@
  * Converts Babel AST nodes to wysJSON JsonNode model
  */
 
-import * as types from '@babel/types';
-import generate from '@babel/generator';
-import { JsonNode } from '../model';
+import * as types from "@babel/types";
+import generate from "@babel/generator";
+import { JsonNode } from "../model";
 
 export function astToModel(node: any, originalSource?: string): JsonNode {
   if (types.isObjectExpression(node)) {
@@ -17,59 +17,82 @@ export function astToModel(node: any, originalSource?: string): JsonNode {
   }
 
   if (types.isStringLiteral(node)) {
+    const raw =
+      getNodeRaw(node, originalSource) ||
+      (node.extra?.raw as string) ||
+      JSON.stringify(node.value);
     return {
-      kind: 'string',
+      kind: "string",
       value: node.value,
-      raw: (node.extra?.raw as string) || JSON.stringify(node.value),
+      raw,
+      originalRaw: raw,
+      sourceKind: "json",
       editable: true,
-      writeMode: 'json'
+      writeMode: "json",
     };
   }
 
   if (types.isNumericLiteral(node)) {
+    const raw =
+      getNodeRaw(node, originalSource) ||
+      (node.extra?.raw as string) ||
+      String(node.value);
     return {
-      kind: 'number',
+      kind: "number",
       value: node.value,
-      raw: (node.extra?.raw as string) || String(node.value),
+      raw,
+      originalRaw: raw,
+      sourceKind: "json",
       editable: true,
-      writeMode: 'json'
+      writeMode: "json",
     };
   }
 
   if (types.isBooleanLiteral(node)) {
+    const raw = getNodeRaw(node, originalSource) || String(node.value);
     return {
-      kind: 'boolean',
+      kind: "boolean",
       value: node.value,
-      raw: String(node.value),
+      raw,
+      originalRaw: raw,
+      sourceKind: "json",
       editable: true,
-      writeMode: 'json'
+      writeMode: "json",
     };
   }
 
   if (types.isNullLiteral(node)) {
+    const raw = getNodeRaw(node, originalSource) || "null";
     return {
-      kind: 'null',
+      kind: "null",
       value: null,
-      raw: 'null',
+      raw,
+      originalRaw: raw,
+      sourceKind: "json",
       editable: true,
-      writeMode: 'json'
+      writeMode: "json",
     };
   }
 
   // Everything else (functions, dates, symbols, identifiers, calls, etc.)
   // Preserve as code text node
-  const codeText = generate.default(node).code;
+  const codeText = getNodeRaw(node, originalSource) || generate(node).code;
   return {
-    kind: 'codeText',
+    kind: "codeText",
     value: codeText,
     raw: codeText,
+    originalRaw: codeText,
+    sourceKind: "code",
     editable: true,
-    writeMode: 'code',
-    warning: '此节点为 JavaScript 代码表达式，修改后需要保证语法有效'
+    writeMode: "code",
+    warning: "此节点为 JavaScript 代码表达式，修改后需要保证语法有效",
   };
 }
 
-function astObjectToModel(node: types.ObjectExpression, originalSource?: string): JsonNode {
+function astObjectToModel(
+  node: types.ObjectExpression,
+  originalSource?: string,
+): JsonNode {
   const children: Record<string, JsonNode> = {};
 
   for (const prop of node.properties) {
@@ -84,19 +107,22 @@ function astObjectToModel(node: types.ObjectExpression, originalSource?: string)
         key = String(prop.key.value);
       } else {
         // Computed property or other unsupported key type
-        key = generate.default(prop.key).code;
+        key = generate(prop.key).code;
       }
 
       if (types.isObjectMethod(prop)) {
         // Object method: preserve as code text
-        const methodCode = generate.default(prop).code;
+        const methodCode =
+          getNodeRaw(prop, originalSource) || generate(prop).code;
         children[key] = {
-          kind: 'codeText',
+          kind: "codeText",
           value: methodCode,
           raw: methodCode,
+          originalRaw: methodCode,
+          sourceKind: "objectMethod",
           editable: true,
-          writeMode: 'code',
-          warning: '对象方法将保留 JavaScript 代码形式'
+          writeMode: "code",
+          warning: "对象方法将保留 JavaScript 代码形式",
         };
       } else {
         // Regular object property
@@ -104,28 +130,37 @@ function astObjectToModel(node: types.ObjectExpression, originalSource?: string)
       }
     } else if (types.isSpreadElement(prop)) {
       // Spread not supported, mark as warning
-      children['...'] = {
-        kind: 'codeText',
-        value: generate.default(prop).code,
-        raw: generate.default(prop).code,
+      const spreadCode =
+        getNodeRaw(prop, originalSource) || generate(prop).code;
+      children["..."] = {
+        kind: "codeText",
+        value: spreadCode,
+        raw: spreadCode,
+        originalRaw: spreadCode,
+        sourceKind: "spread",
         editable: false,
-        writeMode: 'code',
-        warning: '扩展运算符（...）不支持在 wysJSON 中编辑'
+        writeMode: "code",
+        warning: "扩展运算符（...）不支持在 wysJSON 中编辑",
       };
     }
   }
 
   return {
-    kind: 'object',
+    kind: "object",
     value: {},
-    raw: originalSource,
+    raw: getNodeRaw(node, originalSource) || originalSource,
+    originalRaw: getNodeRaw(node, originalSource) || originalSource,
+    sourceKind: "json",
     editable: true,
-    writeMode: 'json',
-    children
+    writeMode: "json",
+    children,
   };
 }
 
-function astArrayToModel(node: types.ArrayExpression, originalSource?: string): JsonNode {
+function astArrayToModel(
+  node: types.ArrayExpression,
+  originalSource?: string,
+): JsonNode {
   const items: JsonNode[] = [];
 
   for (let i = 0; i < node.elements.length; i++) {
@@ -134,21 +169,27 @@ function astArrayToModel(node: types.ArrayExpression, originalSource?: string): 
     if (elem === null) {
       // Hole in array
       items.push({
-        kind: 'null',
+        kind: "null",
         value: null,
-        raw: 'null',
+        raw: "null",
+        originalRaw: "null",
+        sourceKind: "json",
         editable: true,
-        writeMode: 'json'
+        writeMode: "json",
       });
     } else if (types.isSpreadElement(elem)) {
       // Spread not supported
+      const spreadCode =
+        getNodeRaw(elem, originalSource) || generate(elem).code;
       items.push({
-        kind: 'codeText',
-        value: generate.default(elem).code,
-        raw: generate.default(elem).code,
+        kind: "codeText",
+        value: spreadCode,
+        raw: spreadCode,
+        originalRaw: spreadCode,
+        sourceKind: "spread",
         editable: false,
-        writeMode: 'code',
-        warning: '扩展运算符（...）不支持在 wysJSON 中编辑'
+        writeMode: "code",
+        warning: "扩展运算符（...）不支持在 wysJSON 中编辑",
       });
     } else {
       items.push(astToModel(elem, originalSource));
@@ -156,11 +197,33 @@ function astArrayToModel(node: types.ArrayExpression, originalSource?: string): 
   }
 
   return {
-    kind: 'array',
+    kind: "array",
     value: [],
-    raw: originalSource,
+    raw: getNodeRaw(node, originalSource) || originalSource,
+    originalRaw: getNodeRaw(node, originalSource) || originalSource,
+    sourceKind: "json",
     editable: true,
-    writeMode: 'json',
-    items
+    writeMode: "json",
+    items,
   };
+}
+
+function getNodeRaw(node: any, originalSource?: string): string | undefined {
+  if (!originalSource) {
+    return undefined;
+  }
+
+  if (typeof node?.start !== "number" || typeof node?.end !== "number") {
+    return undefined;
+  }
+
+  if (
+    node.start < 0 ||
+    node.end > originalSource.length ||
+    node.start >= node.end
+  ) {
+    return undefined;
+  }
+
+  return originalSource.slice(node.start, node.end);
 }

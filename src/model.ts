@@ -3,17 +3,28 @@
  * Represents JavaScript values that can be visualized and edited in the table UI
  */
 
-export type JsonNodeKind = 'object' | 'array' | 'string' | 'number' | 'boolean' | 'null' | 'codeText';
+export type JsonNodeKind =
+  | "object"
+  | "array"
+  | "string"
+  | "number"
+  | "boolean"
+  | "null"
+  | "codeText";
 
 export interface JsonNode {
   kind: JsonNodeKind;
   value: any;
   /** Original source code for codeText nodes, or for reconstructing source */
   raw?: string;
+  /** Original source text captured from the input selection before any edits */
+  originalRaw?: string;
+  /** Captured source category to preserve non-JSON forms during write-back */
+  sourceKind?: "json" | "code" | "objectMethod" | "spread";
   /** Whether this node can be directly edited in the table UI */
   editable: boolean;
   /** How to write back this node when changed */
-  writeMode: 'json' | 'code'; // 'json' for standard JSON, 'code' for JavaScript expressions
+  writeMode: "json" | "code"; // 'json' for standard JSON, 'code' for JavaScript expressions
   /** Optional warning message for this node */
   warning?: string;
   /** For structured nodes: children */
@@ -46,7 +57,7 @@ export interface SourceInfo {
  * Message sent from extension to Webview when initializing
  */
 export interface InitMessage {
-  type: 'init';
+  type: "init";
   rootModel: JsonNode;
   sourceInfo: SourceInfo;
   readonlyWarnings?: string[];
@@ -56,7 +67,7 @@ export interface InitMessage {
  * Message sent from Webview to extension to save edits
  */
 export interface SaveMessage {
-  type: 'save';
+  type: "save";
   model: JsonNode;
 }
 
@@ -64,7 +75,7 @@ export interface SaveMessage {
  * Message sent from Webview to extension to request write-back code preview
  */
 export interface PreviewMessage {
-  type: 'preview';
+  type: "preview";
   model: JsonNode;
 }
 
@@ -72,16 +83,20 @@ export interface PreviewMessage {
  * Message sent from Webview to extension to cancel editing
  */
 export interface CancelMessage {
-  type: 'cancel';
+  type: "cancel";
 }
 
-export type WebviewMessage = InitMessage | SaveMessage | PreviewMessage | CancelMessage;
+export type WebviewMessage =
+  | InitMessage
+  | SaveMessage
+  | PreviewMessage
+  | CancelMessage;
 
 /**
  * Response from extension to Webview
  */
 export interface ExtensionResponse {
-  type: 'success' | 'error' | 'preview';
+  type: "success" | "error" | "preview";
   message?: string;
   generatedCode?: string; // For preview or write-back result
 }

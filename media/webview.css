@@ -110,6 +110,21 @@ body {
   margin: 0 4px;
 }
 
+/* Language selector styling */
+.language-select {
+  margin-left: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--btn-border);
+  border-radius: 4px;
+  background: var(--btn-bg);
+  color: var(--text-color);
+  font-size: 12px;
+  cursor: pointer;
+}
+.language-select:focus {
+  outline: 2px solid rgba(26, 115, 232, 0.18);
+}
+
 /* ===== Breadcrumb (Excel Formula Bar Style) ===== */
 .breadcrumb {
   display: flex;
@@ -815,6 +830,73 @@ body {
   cursor: text;
 }
 
+.cell-value.code-text {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  background: linear-gradient(
+    90deg,
+    rgba(172, 123, 63, 0.08) 0,
+    rgba(172, 123, 63, 0.08) 28px,
+    rgba(43, 87, 154, 0.04) 28px,
+    rgba(43, 87, 154, 0.04) 100%
+  );
+  padding-left: 36px;
+}
+
+.cell-value.is-hidden-during-code-edit {
+  display: none;
+}
+
+.json-table td.is-code-editing {
+  padding: 0;
+  background: #fffdf9;
+  box-shadow:
+    inset 0 0 0 1px rgba(172, 123, 63, 0.35),
+    inset 0 0 0 3px rgba(172, 123, 63, 0.08);
+}
+
+.code-text-editor {
+  display: none;
+  width: 100%;
+  min-height: 100%;
+  height: 100%;
+  resize: vertical;
+  border: none;
+  outline: none;
+  background:
+    linear-gradient(90deg, #f6eee3 0, #f6eee3 34px, #fffdf9 34px, #fffdf9 100%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(172, 123, 63, 0.08) 0,
+      rgba(172, 123, 63, 0.08) 1px,
+      transparent 1px,
+      transparent 1.45em
+    );
+  color: var(--text-color);
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px 10px 8px 44px;
+  white-space: pre;
+  overflow-wrap: normal;
+  box-sizing: border-box;
+  tab-size: 2;
+  caret-color: #9a5a13;
+  box-shadow:
+    inset 0 0 0 1px rgba(172, 123, 63, 0.28),
+    inset 34px 0 0 rgba(172, 123, 63, 0.08);
+}
+
+.code-text-editor.is-active {
+  display: block;
+}
+
+.code-text-editor:focus {
+  box-shadow:
+    inset 0 0 0 1px rgba(172, 123, 63, 0.42),
+    inset 34px 0 0 rgba(172, 123, 63, 0.12),
+    0 0 0 2px rgba(172, 123, 63, 0.16);
+}
+
 /* ===== Nested Object/Array Cell ===== */
 .cell-nested {
   position: relative;
@@ -1079,6 +1161,5 @@ body {
 .cell-value.code-text {
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
   color: #7a3e00;
-  background: #fff8f0;
-  font-style: italic;
+  font-style: normal;
 }

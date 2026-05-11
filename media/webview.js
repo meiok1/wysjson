@@ -24,6 +24,7 @@ const App = {
   isFillDragging: false,
   fillSourceMatrix: null,
   fillSourceRect: null,
+  columnWidthCache: {},
   editingHeader: null,
   pendingHeaderEdit: null,
   pendingCellSelection: null,
@@ -50,6 +51,197 @@ const App = {
   model: null,
   modelNodeMap: {},
 
+  // Localization
+  currentLanguage: "en",
+  userLangPref: "auto",
+  translations: {
+    en: {
+      title: "📋 wysJSON",
+      save: "💾 Save",
+      cancel: "✕ Cancel",
+      undo: "↩ Undo",
+      redo: "↪ Redo",
+      clearNull: "🧹 Clear null",
+      nullAsString: "null as string",
+      thumbnail: "Thumbnail",
+      thumbnailHint:
+        "Drag panel / drag viewport / click to locate / resize on left edge",
+      thumbnailOverviewLabel: "Viewport",
+      quickJumpHint: "Drag panel / Ctrl+click to focus / resize on left edge",
+      quickJump: "Quick Jump",
+      root: "📄 root",
+      emptyTitle: "wysJSON Table Editor",
+      emptyHint: "Loading data from editor selection...",
+      waitingForData: "Waiting for data...",
+      dataLoaded: "Data loaded, ready to edit",
+      saved: "Saved",
+      savedToSource: "Saved to source file",
+      operationFailed: "Operation failed",
+      // Status messages
+      noData: "No data",
+      notFoundToFocus: "No node to focus",
+      focusedToNode: "Focused to node {path}",
+      returnedToRoot: "Returned to root",
+      focusBadge: "Focusing",
+      insertedRowBefore: "Inserted new item before row {n}",
+      insertedRowAfter: "Inserted new item after row {n}",
+      notFoundColumnObject: "Column's parent object not found",
+      notFoundTargetObject: "Target object not found",
+      insertedColumnBefore: "Inserted new column before {key}",
+      insertedColumnAfter: "Inserted new column after {key}",
+      insertColumnFailed: "Insert column failed",
+      objectSetToNull: "Set object to null",
+      noDataToOperate: "No data to operate",
+      allNullsCleared: "Converted all nulls to empty strings",
+      // Context menu
+      convertType: "Convert type",
+      insertRowBefore: "Insert row before",
+      insertRowAfter: "Insert row after",
+      deleteCurrentRow: "Delete current row",
+      deleteRootNode: "Delete root node (set to null)",
+      deleteCurrentNode: "Delete current node (set to null)",
+      addChildItem: "Add item to array",
+      addFieldRoot: "Add field to root object",
+      addFieldCurrent: "Add field to current object",
+      focusNode: "Focus node",
+      deleteRow: "Delete row {n}",
+      insertColumnBefore: "Insert column {key} before",
+      insertColumnAfter: "Insert column {key} after",
+      deleteColumn: "Delete column {key}",
+      setObjectNull: "Set object to null",
+      clearSelectionNodes: "Delete selected nodes (set to null)",
+      // Type labels
+      "type.array": "Array",
+      "type.object": "Object",
+      "type.single": "Single value",
+      "type.string": "String",
+      "type.number": "Number",
+      "type.boolean": "Boolean",
+      "type.null": "Null",
+      "type.codeText": "Code",
+    },
+    "zh-CN": {
+      title: "📋 wysJSON",
+      save: "💾 保存",
+      cancel: "✕ 关闭",
+      undo: "↩ 撤销",
+      redo: "↪ 重做",
+      clearNull: "🧹 清除 null",
+      nullAsString: "将 null 视为字符串",
+      thumbnail: "缩略图",
+      thumbnailHint: "拖动面板 / 拖动视区 / 点击定位 / 左侧拖边调整宽度",
+      thumbnailOverviewLabel: "视区",
+      quickJumpHint: "拖动面板 / Ctrl+点击聚焦 / 左侧拖边调整宽度",
+      quickJump: "快速跳转",
+      root: "📄 root",
+      emptyTitle: "wysJSON 表格编辑器",
+      emptyHint: "正在从编辑器选区加载数据...",
+      waitingForData: "等待数据...",
+      dataLoaded: "数据已加载，可编辑",
+      saved: "已保存",
+      savedToSource: "已写回编辑器",
+      operationFailed: "操作失败",
+      // Status messages
+      noData: "没有数据",
+      notFoundToFocus: "未找到要聚焦的节点",
+      focusedToNode: "已聚焦到节点 {path}",
+      returnedToRoot: "已返回 root",
+      focusBadge: "聚焦中",
+      insertedRowBefore: "已在第 {n} 行前插入新项",
+      insertedRowAfter: "已在第 {n} 行后插入新项",
+      notFoundColumnObject: "未找到列所在对象",
+      notFoundTargetObject: "未找到要修改的对象",
+      insertedColumnBefore: "已在列 {key} 前插入新列",
+      insertedColumnAfter: "已在列 {key} 后插入新列",
+      insertColumnFailed: "插入列失败",
+      objectSetToNull: "已将对象设为 null",
+      noDataToOperate: "没有数据可操作",
+      allNullsCleared: "已将所有 null 转为空字符串",
+      // Context menu
+      convertType: "改变类型",
+      insertRowBefore: "在当前行前插入",
+      insertRowAfter: "在当前行后插入",
+      deleteCurrentRow: "删除当前行",
+      deleteRootNode: "删除根节点（置为 null）",
+      deleteCurrentNode: "删除当前节点（置为 null）",
+      addChildItem: "向当前数组添加项",
+      addFieldRoot: "向根对象添加字段",
+      addFieldCurrent: "向当前对象添加字段",
+      focusNode: "聚焦此节点",
+      deleteRow: "删除第 {n} 行",
+      insertColumnBefore: "在列 {key} 前插入",
+      insertColumnAfter: "在列 {key} 后插入",
+      deleteColumn: "删除列 {key}",
+      setObjectNull: "将对象设为 null",
+      clearSelectionNodes: "删除选区节点（置为 null）",
+      // Type labels
+      "type.array": "Array",
+      "type.object": "对象",
+      "type.single": "单值",
+      "type.string": "String",
+      "type.number": "Number",
+      "type.boolean": "Boolean",
+      "type.null": "Null",
+      "type.codeText": "代码",
+    },
+  },
+
+  getTranslation(key, params) {
+    const map =
+      this.translations[this.currentLanguage] || this.translations["en"];
+    let txt = map[key] || key;
+    if (params && typeof params === "object") {
+      for (const p of Object.keys(params)) {
+        txt = String(txt).replace(new RegExp(`\{${p}\}`, "g"), params[p]);
+      }
+    }
+    return txt;
+  },
+
+  applyTranslations() {
+    try {
+      const t = (k) => this.getTranslation(k);
+      const titleEl = document.querySelector(".toolbar .title");
+      if (titleEl) titleEl.textContent = t("title");
+      const btnSave = document.getElementById("btnSave");
+      if (btnSave) {
+        btnSave.textContent = t("save");
+        btnSave.title = t("save");
+      }
+      const btnCancel = document.getElementById("btnCancel");
+      if (btnCancel) {
+        btnCancel.textContent = t("cancel");
+        btnCancel.title = t("cancel");
+      }
+      const btnUndo = document.getElementById("btnUndo");
+      if (btnUndo) btnUndo.textContent = t("undo");
+      const btnRedo = document.getElementById("btnRedo");
+      if (btnRedo) btnRedo.textContent = t("redo");
+      const btnClearNull = document.getElementById("btnClearNull");
+      if (btnClearNull) btnClearNull.textContent = t("clearNull");
+      const chkLabel = document.querySelector(
+        "label.toolbar-checkbox[for='chkNullAsString']",
+      );
+      // Fallback: update the plain label text if structured differently
+      const chk = document.getElementById("chkNullAsString");
+      if (chk && chk.parentElement) {
+        // update the parent label text (preserve checkbox)
+        chk.parentElement.childNodes.forEach((n) => {
+          if (n.nodeType === Node.TEXT_NODE)
+            n.textContent = " " + t("nullAsString");
+        });
+      }
+      const breadcrumbCur = document.querySelector("#breadcrumb .current");
+      if (breadcrumbCur) breadcrumbCur.textContent = t("root");
+      const emptyH = document.querySelector("#emptyState h3");
+      if (emptyH) emptyH.textContent = t("emptyTitle");
+      const emptyP = document.querySelector("#emptyState p");
+      if (emptyP) emptyP.textContent = t("emptyHint");
+    } catch (err) {
+      console.warn("applyTranslations failed", err);
+    }
+  },
+
   // --- Undo/Redo ---
   undoStack: [],
   redoStack: [],
@@ -58,6 +250,20 @@ const App = {
   init() {
     this.loadUIState();
     this.bindEvents();
+    // Language initialization: prefer user's saved pref (window.initialLanguage)
+    try {
+      const userPref = window.initialLanguage || "auto";
+      this.userLangPref = userPref;
+      // Default to English for 'auto' unless extension overrides via init message
+      this.currentLanguage = userPref === "auto" ? "en" : userPref;
+      document.documentElement.lang = this.currentLanguage;
+      // Set select control if present
+      const langSel = document.getElementById("languageSelect");
+      if (langSel) langSel.value = userPref;
+      this.applyTranslations();
+    } catch (e) {
+      console.warn("language init error", e);
+    }
     const chk = document.getElementById("chkNullAsString");
     if (chk) chk.checked = this.nullAsString;
     const thumbnailChk = document.getElementById("chkThumbnail");
@@ -65,7 +271,7 @@ const App = {
     const quickJumpChk = document.getElementById("chkQuickJump");
     if (quickJumpChk) quickJumpChk.checked = this.miniMapEnabled;
     this.applyEditorScale();
-    this.setStatus("Waiting for data...");
+    this.setStatus(this.getTranslation("waitingForData"));
     console.log("[wysJSON webview] init called, sending ready");
     vscode.postMessage({ type: "ready" });
   },
@@ -155,22 +361,29 @@ const App = {
   },
 
   bindEvents() {
-    document
-      .getElementById("btnSave")
-      ?.addEventListener("click", () => this.handleSave());
-    document
-      .getElementById("btnCancel")
-      ?.addEventListener("click", () => this.handleCancel());
+    const commitActive = () => {
+      if (this.editingCell) this.finishEdit(this.editingCell);
+    };
+    document.getElementById("btnSave")?.addEventListener("click", () => {
+      commitActive();
+      this.handleSave();
+    });
+    document.getElementById("btnCancel")?.addEventListener("click", () => {
+      commitActive();
+      this.handleCancel();
+    });
     window.addEventListener("message", (event) => {
       this.handleExtensionMessage(event.data);
     });
     if (document.getElementById("btnUndo")) {
-      document
-        .getElementById("btnUndo")
-        .addEventListener("click", () => this.undo());
-      document
-        .getElementById("btnRedo")
-        .addEventListener("click", () => this.redo());
+      document.getElementById("btnUndo").addEventListener("click", () => {
+        commitActive();
+        this.undo();
+      });
+      document.getElementById("btnRedo").addEventListener("click", () => {
+        commitActive();
+        this.redo();
+      });
     }
     document
       .getElementById("tableView")
@@ -202,9 +415,33 @@ const App = {
     document
       .getElementById("tableView")
       .addEventListener("mouseleave", () => this.setHoveredCell(null));
+    const langSel = document.getElementById("languageSelect");
+    if (langSel) {
+      langSel.addEventListener("change", (e) => {
+        const v = e.target.value || "auto";
+        this.userLangPref = v;
+        const navLang = (navigator && navigator.language) || "en";
+        this.currentLanguage =
+          v === "auto"
+            ? navLang && navLang.startsWith("zh")
+              ? "zh-CN"
+              : "en"
+            : v;
+        document.documentElement.lang = this.currentLanguage;
+        this.applyTranslations();
+        try {
+          vscode.postMessage({ type: "setLanguage", language: v });
+        } catch (err) {
+          console.warn("Failed to post setLanguage", err);
+        }
+      });
+    }
     const btnClearNull = document.getElementById("btnClearNull");
     if (btnClearNull)
-      btnClearNull.addEventListener("click", () => this.clearAllNulls());
+      btnClearNull.addEventListener("click", () => {
+        commitActive();
+        this.clearAllNulls();
+      });
     const chk = document.getElementById("chkNullAsString");
     if (chk)
       chk.addEventListener("change", (e) => {
@@ -298,18 +535,49 @@ const App = {
   redoStack: [],
   maxUndo: 50,
 
+  cloneJsonLike(value) {
+    return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+  },
+
+  createEditorSnapshot() {
+    return {
+      data: this.cloneJsonLike(this.data),
+      model: this.cloneJsonLike(this.model),
+    };
+  },
+
+  restoreEditorSnapshot(snapshot) {
+    if (
+      snapshot &&
+      typeof snapshot === "object" &&
+      Object.prototype.hasOwnProperty.call(snapshot, "data")
+    ) {
+      this.data = this.cloneJsonLike(snapshot.data);
+      this.model = this.cloneJsonLike(snapshot.model);
+    } else {
+      this.data = this.cloneJsonLike(snapshot);
+      this.model =
+        this.data === null ? null : this.rebuildModelFromData(this.data, "");
+    }
+
+    this.modelNodeMap = {};
+    if (this.model) {
+      this.buildModelNodeMap(this.model, "");
+    }
+  },
+
   pushUndo() {
     if (this.data === null) return;
-    this.undoStack.push(JSON.parse(JSON.stringify(this.data)));
+    this.undoStack.push(this.createEditorSnapshot());
     if (this.undoStack.length > this.maxUndo) this.undoStack.shift();
     this.redoStack = [];
   },
 
   undo() {
     if (this.undoStack.length === 0) return this.setStatus("没有可撤销的操作");
-    if (this.data !== null)
-      this.redoStack.push(JSON.parse(JSON.stringify(this.data)));
-    this.data = this.undoStack.pop();
+    if (this.data !== null || this.model !== null)
+      this.redoStack.push(this.createEditorSnapshot());
+    this.restoreEditorSnapshot(this.undoStack.pop());
     this.nestedStates = {};
     this.columnStates = {};
     this.selectedCell = null;
@@ -332,9 +600,9 @@ const App = {
 
   redo() {
     if (this.redoStack.length === 0) return this.setStatus("没有可重做的操作");
-    if (this.data !== null)
-      this.undoStack.push(JSON.parse(JSON.stringify(this.data)));
-    this.data = this.redoStack.pop();
+    if (this.data !== null || this.model !== null)
+      this.undoStack.push(this.createEditorSnapshot());
+    this.restoreEditorSnapshot(this.redoStack.pop());
     this.nestedStates = {};
     this.columnStates = {};
     this.selectedCell = null;
@@ -393,7 +661,8 @@ const App = {
 
   // ===== Actions =====
   formatJSON() {
-    if (this.data === null) return this.setStatus("没有数据", true);
+    if (this.data === null)
+      return this.setStatus(this.getTranslation("noData"), true);
     const formatted = JSON.stringify(this.data, null, 2);
     document.getElementById("jsonInput").value = formatted;
     document.getElementById("inputPanel").classList.add("open");
@@ -401,7 +670,8 @@ const App = {
   },
 
   minifyJSON() {
-    if (this.data === null) return this.setStatus("没有数据", true);
+    if (this.data === null)
+      return this.setStatus(this.getTranslation("noData"), true);
     const minified = JSON.stringify(this.data);
     document.getElementById("jsonInput").value = minified;
     document.getElementById("inputPanel").classList.add("open");
@@ -409,7 +679,8 @@ const App = {
   },
 
   copyJSON() {
-    if (this.data === null) return this.setStatus("没有数据", true);
+    if (this.data === null)
+      return this.setStatus(this.getTranslation("noData"), true);
     navigator.clipboard
       .writeText(JSON.stringify(this.data, null, 2))
       .then(() => {
@@ -418,7 +689,8 @@ const App = {
   },
 
   exportJSON() {
-    if (this.data === null) return this.setStatus("没有数据", true);
+    if (this.data === null)
+      return this.setStatus(this.getTranslation("noData"), true);
     const json = JSON.stringify(this.data, null, 2);
     document.getElementById("jsonInput").value = json;
     document.getElementById("inputPanel").classList.add("open");
@@ -510,12 +782,16 @@ const App = {
   setFocusPath(path, options = {}) {
     const nextPath = this.normalizePath(path);
     if (nextPath && this.getValueAtPath(this.data, nextPath) === undefined) {
-      return this.setStatus("未找到要聚焦的节点", true);
+      return this.setStatus(this.getTranslation("notFoundToFocus"), true);
     }
     this.focusPath = nextPath;
     this.pendingCellSelection = options.selectPath || null;
     this.render();
-    this.setStatus(nextPath ? `已聚焦到节点 ${nextPath}` : "已返回 root");
+    this.setStatus(
+      nextPath
+        ? this.getTranslation("focusedToNode", { path: nextPath })
+        : this.getTranslation("returnedToRoot"),
+    );
   },
 
   updateBreadcrumb() {
@@ -531,7 +807,11 @@ const App = {
       );
     }
     if (this.focusPath) {
-      parts.push('<span class="focus-badge">聚焦中</span>');
+      parts.push(
+        '<span class="focus-badge">' +
+          this.getTranslation("focusBadge") +
+          "</span>",
+      );
     }
     bc.innerHTML = parts.join("");
   },
@@ -631,7 +911,7 @@ const App = {
       return;
     }
     const blocks = this.collectThumbnailBlocks();
-    panel.innerHTML = `<div class="mini-map-resize-handle" title="拖动调整缩略图宽度"></div><div class="mini-map-header"><div class="mini-map-title">缩略图</div><div class="mini-map-hint" title="拖动面板 / 拖动视区 / 点击定位 / 左侧拖边调整宽度">拖动面板 / 拖动视区 / 点击定位 / 左侧拖边调整宽度</div></div><div class="mini-map-overview"><div class="mini-map-overview-grid"></div><div class="thumbnail-canvas">${blocks}</div><div class="mini-map-viewport" id="thumbnailViewport"></div><div class="mini-map-overview-label" id="thumbnailOverviewLabel">视区</div></div>`;
+    panel.innerHTML = `<div class="mini-map-resize-handle" title="${this.getTranslation("thumbnailHint") || "Drag to resize thumbnail width"}"></div><div class="mini-map-header"><div class="mini-map-title">${this.getTranslation("thumbnail")}</div><div class="mini-map-hint" title="${this.getTranslation("thumbnailHint")}">${this.getTranslation("thumbnailHint")}</div></div><div class="mini-map-overview"><div class="mini-map-overview-grid"></div><div class="thumbnail-canvas">${blocks}</div><div class="mini-map-viewport" id="thumbnailViewport"></div><div class="mini-map-overview-label" id="thumbnailOverviewLabel">${this.getTranslation("thumbnailOverviewLabel") || "Viewport"}</div></div>`;
     this.updateThumbnailViewport();
     this.updateThumbnailPosition();
   },
@@ -658,7 +938,7 @@ const App = {
     }
     const nodes = this.collectMiniMapNodes(focusValue, this.focusPath || "");
     const activePath = this.selectedCell?.dataset?.path || this.focusPath || "";
-    miniMap.innerHTML = `<div class="mini-map-resize-handle" title="拖动调整快速跳转宽度"></div><div class="mini-map-header"><div class="mini-map-title">快速跳转</div><div class="mini-map-hint" title="拖动面板 / Ctrl+点击聚焦 / 左侧拖边调整宽度">拖动面板 / Ctrl+点击聚焦 / 左侧拖边调整宽度</div></div>${nodes
+    miniMap.innerHTML = `<div class="mini-map-resize-handle" title="${this.getTranslation("quickJumpHint") || "Drag to resize quick jump width"}"></div><div class="mini-map-header"><div class="mini-map-title">${this.getTranslation("quickJump")}</div><div class="mini-map-hint" title="${this.getTranslation("quickJumpHint")}">${this.getTranslation("quickJumpHint")}</div></div>${nodes
       .map(
         (node) => `
             <button class="mini-map-item ${activePath === node.path ? "active" : ""}" title="${node.label || "root"} (${node.type})" data-path="${node.path}" style="padding-left:${6 + node.depth * 12}px">
@@ -1285,6 +1565,31 @@ const App = {
     return fullPath.replace(/\[\d+\](?=(\.[^.]+)$)/, "").replace(/^\./, "");
   },
 
+  getColumnWidthKey(path, key) {
+    return this.getColumnStateKey(path, key);
+  },
+
+  rememberColumnWidth(path, key, width) {
+    if (!key || !Number.isFinite(width) || width <= 0) return;
+    this.columnWidthCache[this.getColumnWidthKey(path, key)] = Math.ceil(width);
+  },
+
+  getRememberedColumnWidth(path, key) {
+    return this.columnWidthCache[this.getColumnWidthKey(path, key)] || null;
+  },
+
+  lockHeaderWidth(th) {
+    if (!th) return 0;
+    const width = Math.ceil(
+      th.getBoundingClientRect().width || th.offsetWidth || 0,
+    );
+    if (width > 0) {
+      th.style.width = `${width}px`;
+      th.style.minWidth = `${width}px`;
+    }
+    return width;
+  },
+
   // ===== Rendering =====
   render() {
     const container = document.getElementById("editorCanvas");
@@ -1418,6 +1723,11 @@ const App = {
       th.setAttribute("data-header-key", key);
       th.setAttribute("data-header-editable", "true");
       th.title = "双击修改列标题";
+      const rememberedWidth = this.getRememberedColumnWidth(path, key);
+      if (rememberedWidth) {
+        th.style.width = `${rememberedWidth}px`;
+        th.style.minWidth = `${rememberedWidth}px`;
+      }
 
       // Check if column has any nested values
       const sample = rows.find(
@@ -1428,6 +1738,15 @@ const App = {
           r[key] !== undefined,
       );
       const sampleVal = sample ? sample[key] : undefined;
+      const sampleIndex = sample ? rows.indexOf(sample) : -1;
+      const samplePath = sample
+        ? isArray
+          ? `${path}[${sampleIndex}].${key}`
+          : path
+            ? `${path}.${key}`
+            : key
+        : key;
+      const sampleKind = this.getNodeKindForPath(samplePath, sampleVal);
       const isNested =
         sampleVal !== null &&
         sampleVal !== undefined &&
@@ -1464,13 +1783,12 @@ const App = {
       ) {
         const tag = document.createElement("span");
         tag.className = "type-tag";
-        tag.textContent = typeof sampleVal;
+        tag.textContent = sampleKind === "codeText" ? "code" : sampleKind;
         th.appendChild(tag);
       }
 
       const dragHandle = document.createElement("span");
       dragHandle.className = "drag-handle";
-      dragHandle.textContent = "⋮⋮";
       dragHandle.title = "拖拽调整字段顺序";
       dragHandle.draggable = true;
       dragHandle.addEventListener("click", (e) => e.stopPropagation());
@@ -1961,7 +2279,7 @@ const App = {
       span.textContent = String(val);
       if (isCodeText)
         span.title =
-          "JS code expression (e.g. function, Date). Editing converts it to a string.";
+          "JS code expression (e.g. function, Date). Editing keeps it as JavaScript and validates on save.";
       td.appendChild(span);
     }
   },
@@ -2055,6 +2373,7 @@ const App = {
 
   beginStructureDrag(payload, sourceElement, event) {
     if (!event.dataTransfer) return;
+    if (this.editingCell) this.finishEdit(this.editingCell);
     this.finishStructureDrag();
     this.dragState = { ...payload };
     sourceElement?.classList.add("drag-source");
@@ -2166,6 +2485,9 @@ const App = {
     } else {
       this.rebuildObjectWithKeyOrder(target, nextOrder);
     }
+    this.applyModelColumnChange(path, (node) =>
+      this.rebuildModelObjectWithKeyOrder(node, nextOrder),
+    );
     this.pendingCellSelection = selectedPath;
     this.render();
     this.setStatus(`已调整列顺序：${sourceKey}`);
@@ -2265,6 +2587,12 @@ const App = {
 
     const label = th.querySelector(".header-label");
     const originalValue = th.dataset.headerKey || label?.textContent || "";
+    const currentWidth = this.lockHeaderWidth(th);
+    this.rememberColumnWidth(
+      th.dataset.headerPath || "",
+      originalValue,
+      currentWidth,
+    );
     th.classList.add("header-editing");
     th.innerHTML = "";
 
@@ -2317,9 +2645,13 @@ const App = {
     if (!th || this.editingHeader !== th) return;
     const input = th.querySelector(".header-editor");
     const nextKey = input?.value?.trim() || "";
+    const headerPath = th.dataset.headerPath || "";
     const originalKey =
       th.dataset.headerKey || input?.dataset.originalValue || "";
+    const headerWidth = this.lockHeaderWidth(th);
     this.editingHeader = null;
+
+    this.rememberColumnWidth(headerPath, nextKey || originalKey, headerWidth);
 
     if (!nextKey) {
       this.render();
@@ -2338,7 +2670,14 @@ const App = {
 
   cancelHeaderEdit(th) {
     if (!th || this.editingHeader !== th) return;
+    const originalKey = th.dataset.headerKey || "";
+    const headerWidth = this.lockHeaderWidth(th);
     this.editingHeader = null;
+    this.rememberColumnWidth(
+      th.dataset.headerPath || "",
+      originalKey,
+      headerWidth,
+    );
     this.render();
     this.setStatus("已取消列标题修改");
   },
@@ -2356,6 +2695,109 @@ const App = {
       delete target[key];
     }
     Object.assign(target, nextObject);
+  },
+
+  renameModelObjectKey(node, oldKey, newKey) {
+    if (!node || node.kind !== "object" || !node.children) return;
+    if (!Object.prototype.hasOwnProperty.call(node.children, oldKey)) return;
+    const nextChildren = {};
+    for (const key of Object.keys(node.children)) {
+      if (key === oldKey) {
+        nextChildren[newKey] = node.children[key];
+      } else {
+        nextChildren[key] = node.children[key];
+      }
+    }
+    node.children = nextChildren;
+  },
+
+  renameModelColumn(path, oldKey, newKey) {
+    if (!this.model) return;
+    const modelNode = this.getModelNodeByPath(path);
+    if (!modelNode) return;
+
+    if (modelNode.kind === "array" && Array.isArray(modelNode.items)) {
+      for (const item of modelNode.items) {
+        this.renameModelObjectKey(item, oldKey, newKey);
+      }
+    } else if (modelNode.kind === "object") {
+      this.renameModelObjectKey(modelNode, oldKey, newKey);
+    }
+
+    this.modelNodeMap = {};
+    this.buildModelNodeMap(this.model, "");
+  },
+
+  createDefaultColumnModelNode() {
+    return this.createJsonNodeFromValue(this.nullAsString ? "" : null);
+  },
+
+  insertModelObjectKey(node, anchorKey, newKey, position = "after") {
+    if (!node || node.kind !== "object") return;
+    const children = node.children || {};
+    const nextChildren = {};
+    let inserted = false;
+    for (const key of Object.keys(children)) {
+      if (key === anchorKey && position === "before" && !inserted) {
+        nextChildren[newKey] = this.createDefaultColumnModelNode();
+        inserted = true;
+      }
+      nextChildren[key] = children[key];
+      if (key === anchorKey && position === "after" && !inserted) {
+        nextChildren[newKey] = this.createDefaultColumnModelNode();
+        inserted = true;
+      }
+    }
+    if (!inserted) {
+      nextChildren[newKey] = this.createDefaultColumnModelNode();
+    }
+    node.children = nextChildren;
+  },
+
+  deleteModelObjectKey(node, keyToDelete) {
+    if (!node || node.kind !== "object" || !node.children) return;
+    if (!Object.prototype.hasOwnProperty.call(node.children, keyToDelete))
+      return;
+    const nextChildren = {};
+    for (const key of Object.keys(node.children)) {
+      if (key !== keyToDelete) {
+        nextChildren[key] = node.children[key];
+      }
+    }
+    node.children = nextChildren;
+  },
+
+  rebuildModelObjectWithKeyOrder(node, orderedKeys) {
+    if (!node || node.kind !== "object" || !node.children) return;
+    const nextChildren = {};
+    for (const key of orderedKeys) {
+      if (Object.prototype.hasOwnProperty.call(node.children, key)) {
+        nextChildren[key] = node.children[key];
+      }
+    }
+    for (const key of Object.keys(node.children)) {
+      if (!Object.prototype.hasOwnProperty.call(nextChildren, key)) {
+        nextChildren[key] = node.children[key];
+      }
+    }
+    node.children = nextChildren;
+  },
+
+  applyModelColumnChange(path, applyToObjectNode) {
+    if (!this.model) return;
+    const modelNode = this.getModelNodeByPath(path);
+    if (!modelNode) return;
+
+    if (modelNode.kind === "array" && Array.isArray(modelNode.items)) {
+      for (const item of modelNode.items) {
+        applyToObjectNode(item);
+      }
+    } else if (modelNode.kind === "object") {
+      applyToObjectNode(modelNode);
+    }
+
+    this.modelNodeMap = {};
+    this.buildModelNodeMap(this.model, "");
   },
 
   renameColumn(path, oldKey, newKey) {
@@ -2397,6 +2839,8 @@ const App = {
       } else {
         throw new Error("当前节点不支持修改列标题");
       }
+
+      this.renameModelColumn(path, oldKey, newKey);
 
       this.render();
       this.setStatus(`已将列标题修改为 ${newKey}`);
@@ -2468,6 +2912,97 @@ const App = {
 
   activateEditable(span, enabled) {
     span.setAttribute("contenteditable", enabled ? "plaintext-only" : "false");
+  },
+
+  getModelNodeByPath(path) {
+    if (!this.modelNodeMap) return null;
+    return this.modelNodeMap[path || ""] || null;
+  },
+
+  getNodeKindForPath(path, fallbackValue) {
+    const modelNode = this.getModelNodeByPath(path);
+    if (modelNode?.kind) {
+      return modelNode.kind;
+    }
+    if (Array.isArray(fallbackValue)) return "array";
+    if (fallbackValue !== null && typeof fallbackValue === "object") {
+      return "object";
+    }
+    if (fallbackValue === null) return "null";
+    if (typeof fallbackValue === "string") return "string";
+    if (typeof fallbackValue === "number") return "number";
+    if (typeof fallbackValue === "boolean") return "boolean";
+    return "single";
+  },
+
+  isCodeTextPath(path) {
+    return this.getNodeKindForPath(path) === "codeText";
+  },
+
+  isCodeTextCell(td) {
+    const path =
+      td?.dataset?.path ||
+      td?.querySelector(".cell-value")?.dataset?.path ||
+      "";
+    return this.isCodeTextPath(path);
+  },
+
+  getCodeEditor(td) {
+    return td?.querySelector(".code-text-editor") || null;
+  },
+
+  ensureCodeTextEditor(td, span) {
+    let editor = this.getCodeEditor(td);
+    if (editor) return editor;
+
+    editor = document.createElement("textarea");
+    editor.className = "code-text-editor";
+    editor.setAttribute("spellcheck", "false");
+    editor.setAttribute("rows", "1");
+    editor.addEventListener("mousedown", (e) => e.stopPropagation());
+    editor.addEventListener("click", (e) => e.stopPropagation());
+    editor.addEventListener("dblclick", (e) => e.stopPropagation());
+    editor.addEventListener("keydown", (e) => e.stopPropagation());
+    editor.addEventListener("input", () => this.autoResizeCodeEditor(editor));
+    td.appendChild(editor);
+    return editor;
+  },
+
+  autoResizeCodeEditor(editor) {
+    if (!editor) return;
+    editor.style.height = "auto";
+    editor.style.height = `${Math.max(editor.scrollHeight, 32)}px`;
+  },
+
+  normalizeEditedText(raw) {
+    if (raw === null || raw === undefined) return "";
+    return String(raw)
+      .replace(/\r\n?/g, "\n")
+      .replace(/\u00A0/g, " ")
+      .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "");
+  },
+
+  getEditingValue(td) {
+    const editor = this.getCodeEditor(td);
+    if (editor) {
+      return this.normalizeEditedText(editor.value);
+    }
+    const span = td?.querySelector(".cell-value");
+    return span ? this.normalizeEditedText(span.textContent) : "";
+  },
+
+  parseCellInput(path, raw) {
+    if (this.isCodeTextPath(path)) {
+      return { value: raw, isCodeText: true };
+    }
+    return this.parseValue(raw);
+  },
+
+  focusCodeTextEditor(editor, options = {}) {
+    if (!editor) return;
+    editor.focus();
+    const end = editor.value.length;
+    editor.setSelectionRange(end, end);
   },
 
   isSelectableCell(td) {
@@ -2798,6 +3333,21 @@ const App = {
     this.editingCell = td;
     td.classList.add("is-editing");
     span.dataset.originalValue = span.textContent;
+
+    if (this.isCodeTextCell(td)) {
+      const editor = this.ensureCodeTextEditor(td, span);
+      editor.value =
+        options.replaceText !== undefined
+          ? String(options.replaceText)
+          : span.textContent;
+      span.classList.add("is-hidden-during-code-edit");
+      td.classList.add("is-code-editing");
+      editor.classList.add("is-active");
+      this.autoResizeCodeEditor(editor);
+      this.focusCodeTextEditor(editor, options);
+      return;
+    }
+
     this.activateEditable(span, true);
     if (options.replaceText !== undefined) {
       span.textContent = options.replaceText;
@@ -2823,11 +3373,19 @@ const App = {
 
     const path = td.dataset.path || span.dataset.path || "";
     const originalValue = span.dataset.originalValue ?? span.textContent;
-    const raw = span.textContent.replace(/\r\n?/g, "\n");
+    const raw = this.getEditingValue(td);
     const nextPath = moveDirection
       ? this.findAdjacentCellPath(td, moveDirection)
       : null;
-    this.activateEditable(span, false);
+    const codeEditor = this.getCodeEditor(td);
+    if (codeEditor) {
+      codeEditor.classList.remove("is-active");
+      td.classList.remove("is-code-editing");
+      span.classList.remove("is-hidden-during-code-edit");
+      span.textContent = raw;
+    } else {
+      this.activateEditable(span, false);
+    }
     td.classList.remove("is-editing");
     this.editingCell = null;
 
@@ -2837,7 +3395,7 @@ const App = {
       return;
     }
 
-    const newVal = this.parseValue(raw);
+    const newVal = this.parseCellInput(path, raw);
     if (newVal.error) {
       span.textContent = originalValue;
       this.setStatus("值格式错误: " + newVal.error, true);
@@ -2868,7 +3426,15 @@ const App = {
     const span = td.querySelector(".cell-value");
     if (!span) return;
     span.textContent = span.dataset.originalValue ?? span.textContent;
-    this.activateEditable(span, false);
+    const codeEditor = this.getCodeEditor(td);
+    if (codeEditor) {
+      codeEditor.classList.remove("is-active");
+      td.classList.remove("is-code-editing");
+      span.classList.remove("is-hidden-during-code-edit");
+      codeEditor.value = span.textContent;
+    } else {
+      this.activateEditable(span, false);
+    }
     td.classList.remove("is-editing");
     this.editingCell = null;
     this.selectCell(td);
@@ -2908,6 +3474,17 @@ const App = {
     );
   },
 
+  getCellTransferPayload(td) {
+    const path = td?.dataset?.path;
+    if (!path) return null;
+    const node = this.getModelNodeByPath(path);
+    return {
+      value: this.cloneJsonLike(this.getValueAtPath(this.data, path)),
+      preferredType: node?.kind || null,
+      modelNode: this.cloneJsonLike(node),
+    };
+  },
+
   getSelectionMatrix() {
     const cells = this.getSelectedCells();
     if (cells.length === 0) return [];
@@ -2930,6 +3507,34 @@ const App = {
       for (let col = colStart; col <= colEnd; col++) {
         const cell = this.getCellByCoordinates(table, row, col);
         values.push(cell ? this.getCellClipboardValue(cell) : "");
+      }
+      matrix.push(values);
+    }
+    return matrix;
+  },
+
+  getSelectionTransferMatrix() {
+    const cells = this.getSelectedCells();
+    if (cells.length === 0) return [];
+    if (cells.length === 1) return [[this.getCellTransferPayload(cells[0])]];
+
+    const coordinates = cells
+      .map((cell) => ({ cell, ...this.getCellCoordinates(cell) }))
+      .filter((entry) => entry.table);
+    if (coordinates.length === 0) return [];
+
+    const table = coordinates[0].table;
+    const rowStart = Math.min(...coordinates.map((entry) => entry.rowIndex));
+    const rowEnd = Math.max(...coordinates.map((entry) => entry.rowIndex));
+    const colStart = Math.min(...coordinates.map((entry) => entry.colIndex));
+    const colEnd = Math.max(...coordinates.map((entry) => entry.colIndex));
+
+    const matrix = [];
+    for (let row = rowStart; row <= rowEnd; row++) {
+      const values = [];
+      for (let col = colStart; col <= colEnd; col++) {
+        const cell = this.getCellByCoordinates(table, row, col);
+        values.push(cell ? this.getCellTransferPayload(cell) : null);
       }
       matrix.push(values);
     }
@@ -3028,7 +3633,7 @@ const App = {
 
     const parsedUpdates = [];
     for (const update of updates) {
-      const parsed = this.parseValue(update.raw);
+      const parsed = this.parseCellInput(update.path, update.raw);
       if (parsed.error) {
         this.setStatus("值格式错误: " + parsed.error, true);
         return false;
@@ -3042,6 +3647,9 @@ const App = {
     this.pushUndo();
     for (const update of parsedUpdates) {
       this.setValueAtPath(this.data, update.path, update.value);
+      if (this.model) {
+        this.setValueAtPathInModel(this.model, update.path, update.value);
+      }
     }
 
     this.render();
@@ -3089,29 +3697,32 @@ const App = {
             this.fillSourceMatrix[0].length) +
             this.fillSourceMatrix[0].length) %
           this.fillSourceMatrix[0].length;
+        const sourcePayload = this.fillSourceMatrix[sourceRow][sourceCol];
+        if (!sourcePayload) continue;
         updates.push({
           path: cell.dataset.path,
-          raw: this.fillSourceMatrix[sourceRow][sourceCol],
+          value: this.cloneJsonLike(sourcePayload.value),
+          preferredType: sourcePayload.preferredType,
+          modelNode: this.cloneJsonLike(sourcePayload.modelNode),
         });
       }
     }
 
     if (updates.length === 0) return false;
 
-    const parsed = updates.map((update) => ({
-      ...update,
-      parsed: this.parseValue(update.raw),
-    }));
-    const error = parsed.find((item) => item.parsed.error);
-    if (error) {
-      this.setStatus("值格式错误: " + error.parsed.error, true);
-      return false;
-    }
-
     const selectionState = this.captureSelectionState();
     this.pushUndo();
-    for (const item of parsed) {
-      this.setValueAtPath(this.data, item.path, item.parsed.value);
+    for (const item of updates) {
+      this.setValueAtPath(this.data, item.path, item.value);
+      if (this.model) {
+        this.setValueAtPathInModel(
+          this.model,
+          item.path,
+          item.value,
+          item.preferredType,
+          item.modelNode,
+        );
+      }
     }
     this.render();
     this.restoreSelectionState(selectionState);
@@ -3266,6 +3877,7 @@ const App = {
   },
 
   addRow(arrayPath) {
+    if (this.editingCell) this.finishEdit(this.editingCell);
     const arr = this.getValueAtPath(this.data, arrayPath);
     if (!Array.isArray(arr)) return this.setStatus("路径不是数组", true);
     this.pushUndo();
@@ -3303,6 +3915,7 @@ const App = {
   },
 
   addColumn(objectPath) {
+    if (this.editingCell) this.finishEdit(this.editingCell);
     const target = this.getValueAtPath(this.data, objectPath);
     if (!target || typeof target !== "object") {
       return this.setStatus("当前节点不是对象，无法添加列", true);
@@ -3323,6 +3936,11 @@ const App = {
       newKey = this.getNextColumnName(target);
       target[newKey] = this.nullAsString ? "" : null;
     }
+    this.applyModelColumnChange(objectPath, (node) => {
+      if (!node || node.kind !== "object") return;
+      if (!node.children) node.children = {};
+      node.children[newKey] = this.createDefaultColumnModelNode();
+    });
     this.pendingHeaderEdit = { path: objectPath || "", key: newKey };
     this.render();
     this.setStatus("已添加新列，请输入列标题");
@@ -3364,6 +3982,9 @@ const App = {
       } else {
         throw new Error("当前节点不是对象，无法插入列");
       }
+      this.applyModelColumnChange(path, (node) =>
+        this.insertModelObjectKey(node, anchorKey, newKey, position),
+      );
       this.pendingHeaderEdit = { path: path || "", key: newKey };
       this.render();
       this.setStatus(
@@ -3398,6 +4019,9 @@ const App = {
       } else {
         throw new Error("当前节点不支持删除列");
       }
+      this.applyModelColumnChange(path, (node) =>
+        this.deleteModelObjectKey(node, key),
+      );
       this.pendingCellSelection = focusPath;
       this.render();
       this.setStatus(`已删除列 ${key}`);
@@ -3493,6 +4117,34 @@ const App = {
       this.selectedCell ||
       this.getSelectableCellFromTarget(e.target);
     const editingSpan = this.editingCell?.querySelector(".cell-value");
+    const codeEditor = this.getCodeEditor(this.editingCell);
+
+    if (
+      this.editingCell &&
+      codeEditor &&
+      (e.target === codeEditor || codeEditor.contains?.(e.target))
+    ) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        this.cancelEdit(this.editingCell);
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        this.finishEdit(this.editingCell);
+        return;
+      }
+
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const start = codeEditor.selectionStart;
+        const end = codeEditor.selectionEnd;
+        codeEditor.setRangeText("  ", start, end, "end");
+        this.autoResizeCodeEditor(codeEditor);
+      }
+      return;
+    }
 
     if (
       this.editingCell &&
@@ -3551,6 +4203,14 @@ const App = {
       (e.key === "Backspace" || e.key === "Delete") &&
       this.getSelectedCells().length > 0
     ) {
+      if (
+        this.getSelectedCells().length === 1 &&
+        this.isCodeTextCell(activeCell)
+      ) {
+        e.preventDefault();
+        this.beginEdit(activeCell);
+        return;
+      }
       e.preventDefault();
       this.applyMatrixToSelection([[""]], {
         preserveSelection: true,
@@ -3626,12 +4286,14 @@ const App = {
 
   handleTableMouseDown(e) {
     if (e.button !== 0) return;
+    if (e.target.closest(".code-text-editor")) return;
     if (e.target.closest(".selection-fill-handle")) {
+      if (this.editingCell) this.finishEdit(this.editingCell);
       if (!this.selectedCell) return;
       e.preventDefault();
       e.stopPropagation();
       this.isFillDragging = true;
-      this.fillSourceMatrix = this.getSelectionMatrix();
+      this.fillSourceMatrix = this.getSelectionTransferMatrix();
       this.fillSourceRect = this.getRangeRectFromCells(this.getSelectedCells());
       return;
     }
@@ -3728,6 +4390,10 @@ const App = {
       return;
     }
 
+    if (e.target.closest(".code-text-editor")) {
+      return;
+    }
+
     const cell = this.getSelectableCellFromTarget(e.target);
     if (!cell) {
       if (!e.target.closest(".context-menu")) this.clearSelection();
@@ -3751,7 +4417,8 @@ const App = {
   },
 
   handleCopy(e) {
-    if (this.editingCell || this.getSelectedCells().length === 0) return;
+    if (this.editingCell) this.finishEdit(this.editingCell);
+    if (this.getSelectedCells().length === 0) return;
     const matrix = this.getSelectionMatrix();
     if (matrix.length === 0) return;
     const text = matrix.map((row) => row.join("\t")).join("\n");
@@ -3761,7 +4428,8 @@ const App = {
   },
 
   handleCut(e) {
-    if (this.editingCell || this.getSelectedCells().length === 0) return;
+    if (this.editingCell) this.finishEdit(this.editingCell);
+    if (this.getSelectedCells().length === 0) return;
     const matrix = this.getSelectionMatrix();
     if (matrix.length === 0) return;
     const text = matrix.map((row) => row.join("\t")).join("\n");
@@ -3774,7 +4442,8 @@ const App = {
   },
 
   handlePaste(e) {
-    if (this.editingCell || !this.selectedCell) return;
+    if (this.editingCell) this.finishEdit(this.editingCell);
+    if (!this.selectedCell) return;
     const text = e.clipboardData?.getData("text/plain");
     if (!text) return;
     e.preventDefault();
@@ -3782,6 +4451,7 @@ const App = {
   },
 
   handleTableContextMenu(e) {
+    if (this.editingCell) this.finishEdit(this.editingCell);
     // 保持 corner、header 菜单
     const cornerTh = e.target.closest("th.row-num-header");
     if (cornerTh && cornerTh.closest("table.json-table")) {
@@ -3808,6 +4478,7 @@ const App = {
   },
 
   handleContextMenuAction(e) {
+    if (this.editingCell) this.finishEdit(this.editingCell);
     const item = e.target.closest(".menu-item[data-action]");
     if (!item || !this.contextMenuState) return;
     e.stopPropagation();
@@ -3843,6 +4514,18 @@ const App = {
           return convertValue(val[keys[0]], "single");
         }
         return val;
+      }
+      if (type === "codeText") {
+        if (val == null) return "";
+        if (typeof val === "string") return val;
+        if (typeof val === "object") {
+          try {
+            return JSON.stringify(val, null, 2);
+          } catch (error) {
+            return String(val);
+          }
+        }
+        return String(val);
       }
       if (type === "string") return val == null ? "" : String(val);
       if (type === "number") return Number(val) || 0;
@@ -3906,6 +4589,9 @@ const App = {
         const type = action.replace("convert-to-", "");
         newValue = convertValue(state.value, type);
         this.setValueAtPath(this.data, path, newValue);
+        if (this.model) {
+          this.setValueAtPathInModel(this.model, path, newValue, type);
+        }
         this.render();
         this.setStatus(`已将节点 ${path} 改为 ${type}`);
         return;
@@ -3957,7 +4643,11 @@ const App = {
         ),
       );
       // If no selected paths, fall back to state.tablePath when it exists (allow empty string)
-      if (selectedPaths.length === 0 && state && state.tablePath !== undefined) {
+      if (
+        selectedPaths.length === 0 &&
+        state &&
+        state.tablePath !== undefined
+      ) {
         selectedPaths = [state.tablePath];
       }
       const sorted = [...selectedPaths].sort((a, b) => a.length - b.length);
@@ -3986,6 +4676,9 @@ const App = {
       this.pushUndo();
       for (const path of targetPaths) {
         this.setValueAtPath(this.data, path, null);
+        if (this.model) {
+          this.setValueAtPathInModel(this.model, path, null, "null");
+        }
       }
       this.render();
       this.setStatus(`已删除 ${targetPaths.length} 个选区节点（置为 null）`);
@@ -4007,6 +4700,9 @@ const App = {
         const currentValue = this.getValueAtPath(this.data, path);
         const nextValue = convertNodeValue(currentValue, targetType);
         this.setValueAtPath(this.data, path, nextValue);
+        if (this.model) {
+          this.setValueAtPathInModel(this.model, path, nextValue, targetType);
+        }
       }
       this.render();
       this.setStatus(`已将 ${targetPaths.length} 个节点改为 ${targetType}`);
@@ -4021,13 +4717,7 @@ const App = {
     const isPlainObject = (value) =>
       value !== null && typeof value === "object" && !Array.isArray(value);
     const getNodeType = (value) => {
-      if (Array.isArray(value)) return "array";
-      if (value !== null && typeof value === "object") return "object";
-      if (value === null) return "null";
-      if (typeof value === "string") return "string";
-      if (typeof value === "number") return "number";
-      if (typeof value === "boolean") return "boolean";
-      return "single";
+      return this.getNodeKindForPath(state?.path, value);
     };
     // cell/row类型切换菜单
     if (state?.type === "cell" || state?.type === "row") {
@@ -4036,22 +4726,59 @@ const App = {
         state?.type === "row" && !state?.isArrayRow && !state?.path;
       const currentType = getNodeType(state?.value);
       const typeLabels = {
-        array: "Array",
-        object: "Object",
-        single: "单值",
-        string: "String",
-        number: "Number",
-        boolean: "Boolean",
-        null: "Null",
+        array: this.getTranslation("type.array") || "Array",
+        object: this.getTranslation("type.object") || "Object",
+        single:
+          this.getTranslation("type.single") ||
+          this.getTranslation("type.singleShort") ||
+          "Single",
+        string: this.getTranslation("type.string") || "String",
+        number: this.getTranslation("type.number") || "Number",
+        boolean: this.getTranslation("type.boolean") || "Boolean",
+        null: this.getTranslation("type.null") || "Null",
+        codeText: this.getTranslation("type.codeText") || "Code",
       };
       const applicableTypeTargets = {
-        array: ["object", "single", "string", "number", "boolean", "null"],
-        object: ["array", "single", "string", "number", "boolean", "null"],
-        string: ["array", "object", "number", "boolean", "null"],
-        number: ["array", "object", "string", "boolean", "null"],
-        boolean: ["array", "object", "string", "number", "null"],
-        null: ["array", "object", "string", "number", "boolean"],
-        single: ["array", "object", "string", "number", "boolean", "null"],
+        array: [
+          "object",
+          "single",
+          "codeText",
+          "string",
+          "number",
+          "boolean",
+          "null",
+        ],
+        object: [
+          "array",
+          "single",
+          "codeText",
+          "string",
+          "number",
+          "boolean",
+          "null",
+        ],
+        string: ["array", "object", "codeText", "number", "boolean", "null"],
+        number: ["array", "object", "codeText", "string", "boolean", "null"],
+        boolean: ["array", "object", "codeText", "string", "number", "null"],
+        null: ["array", "object", "codeText", "string", "number", "boolean"],
+        codeText: [
+          "array",
+          "object",
+          "single",
+          "string",
+          "number",
+          "boolean",
+          "null",
+        ],
+        single: [
+          "array",
+          "object",
+          "codeText",
+          "string",
+          "number",
+          "boolean",
+          "null",
+        ],
       };
       const typeActions = (
         applicableTypeTargets[currentType] || [
@@ -4071,52 +4798,57 @@ const App = {
       ) {
         extraActions += `
                     <div class="divider"></div>
-                    <div class="menu-item" data-action="insert-row-before">➕ 在当前行前插入</div>
-                    <div class="menu-item" data-action="insert-row-after">➕ 在当前行后插入</div>
-                    <div class="menu-item" data-action="delete-current-row">🗑 删除当前行</div>
+                    <div class="menu-item" data-action="insert-row-before">➕ ${this.getTranslation("insertRowBefore")}</div>
+                    <div class="menu-item" data-action="insert-row-after">➕ ${this.getTranslation("insertRowAfter")}</div>
+                    <div class="menu-item" data-action="delete-current-row">🗑 ${this.getTranslation("deleteCurrentRow")}</div>
                 `;
       } else if (state?.type === "row" && !state?.isArrayRow) {
         extraActions += `
                     <div class="divider"></div>
-                    <div class="menu-item" data-action="delete-current-row">🗑 ${isRootObjectRow ? "删除根节点（置为 null）" : "删除当前节点（置为 null）"}</div>
+                    <div class="menu-item" data-action="delete-current-row">🗑 ${isRootObjectRow ? this.getTranslation("deleteRootNode") : this.getTranslation("deleteCurrentNode")}</div>
                 `;
       }
       if (Array.isArray(state?.value)) {
-        extraActions += `<div class="divider"></div><div class="menu-item" data-action="add-child-item">➕ 向当前数组添加项</div>`;
+        extraActions += `<div class="divider"></div><div class="menu-item" data-action="add-child-item">➕ ${this.getTranslation("addChildItem")}</div>`;
       } else if (isPlainObject(state?.value)) {
-        extraActions += `<div class="divider"></div><div class="menu-item" data-action="add-child-field">➕ ${isRootObjectRow ? "向根对象添加字段" : "向当前对象添加字段"}</div>`;
+        extraActions += `<div class="divider"></div><div class="menu-item" data-action="add-child-field">➕ ${isRootObjectRow ? this.getTranslation("addFieldRoot") : this.getTranslation("addFieldCurrent")}</div>`;
       }
       if (state?.path) {
-        extraActions += `<div class="divider"></div><div class="menu-item" data-action="focus-node">🎯 聚焦此节点</div>`;
+        extraActions += `<div class="divider"></div><div class="menu-item" data-action="focus-node">🎯 ${this.getTranslation("focusNode")}</div>`;
       }
       menu.innerHTML = `
-                ${typeActions.map(([type, label]) => `<div class="menu-item" data-action="convert-to-${type}">🔁 改变类型 → ${label}</div>`).join("")}
+                ${typeActions
+                  .map(
+                    ([type, label]) =>
+                      `<div class="menu-item" data-action="convert-to-${type}">🔁 ${this.getTranslation("convertType")} → ${label}</div>`,
+                  )
+                  .join("")}
                 ${extraActions}
             `;
     } else if (state?.type === "delete-row") {
-      menu.innerHTML = `<div class="menu-item" data-action="delete-row">🗑 删除第 ${state.rowIndex + 1} 行</div>`;
+      menu.innerHTML = `<div class="menu-item" data-action="delete-row">🗑 ${this.getTranslation("deleteRow", { n: state.rowIndex + 1 })}</div>`;
     } else if (state?.type === "header") {
       menu.innerHTML = `
-                <div class="menu-item" data-action="insert-column-before">➕ 在列 ${state.key} 前插入</div>
-                <div class="menu-item" data-action="insert-column-after">➕ 在列 ${state.key} 后插入</div>
+                <div class="menu-item" data-action="insert-column-before">➕ ${this.getTranslation("insertColumnBefore", { key: state.key })}</div>
+                <div class="menu-item" data-action="insert-column-after">➕ ${this.getTranslation("insertColumnAfter", { key: state.key })}</div>
                 <div class="divider"></div>
-                <div class="menu-item" data-action="delete-column">🗑 删除列 ${state.key}</div>
+                <div class="menu-item" data-action="delete-column">🗑 ${this.getTranslation("deleteColumn", { key: state.key })}</div>
             `;
     } else if (state?.type === "set-object-null") {
-      menu.innerHTML = `<div class="menu-item" data-action="set-object-null">🗑 将对象设为 null</div>`;
+      menu.innerHTML = `<div class="menu-item" data-action="set-object-null">🗑 ${this.getTranslation("setObjectNull")}</div>`;
     } else if (state?.type === "corner") {
       // Per-table corner: delete selected nodes by setting them to null
       const cornerTypeActions = state?.isArray
         ? `
-                <div class="menu-item" data-action="convert-to-object">🔁 改变节点类型 → Object</div>
-                <div class="menu-item" data-action="convert-to-single">🔁 改变节点类型 → 单值</div>
+                <div class="menu-item" data-action="convert-to-object">🔁 ${this.getTranslation("convertType")} → ${this.getTranslation("type.object")}</div>
+                <div class="menu-item" data-action="convert-to-single">🔁 ${this.getTranslation("convertType")} → ${this.getTranslation("type.single")}</div>
                 `
         : `
-                <div class="menu-item" data-action="convert-to-array">🔁 改变节点类型 → Array</div>
-                <div class="menu-item" data-action="convert-to-single">🔁 改变节点类型 → 单值</div>
+                <div class="menu-item" data-action="convert-to-array">🔁 ${this.getTranslation("convertType")} → ${this.getTranslation("type.array")}</div>
+                <div class="menu-item" data-action="convert-to-single">🔁 ${this.getTranslation("convertType")} → ${this.getTranslation("type.single")}</div>
                 `;
       menu.innerHTML = `
-                <div class="menu-item" data-action="clear-selection">🗑 删除选区节点（置为 null）</div>
+                <div class="menu-item" data-action="clear-selection">🗑 ${this.getTranslation("clearSelectionNodes")}</div>
                 <div class="divider"></div>
                 ${cornerTypeActions}
             `;
@@ -4164,6 +4896,18 @@ const App = {
   handleExtensionMessage(message) {
     console.log("[wysJSON webview] received message:", message.type);
     if (message.type === "init") {
+      // Apply any language info sent from the extension
+      try {
+        if (message.userLangPref) this.userLangPref = message.userLangPref;
+        if (message.language) {
+          this.currentLanguage = message.language;
+          document.documentElement.lang = message.language;
+        }
+        this.applyTranslations();
+      } catch (e) {
+        console.warn("apply language from init failed", e);
+      }
+
       this.model = message.rootModel;
       this.modelNodeMap = {};
       this.buildModelNodeMap(this.model, "");
@@ -4172,11 +4916,14 @@ const App = {
       this.nestedStates = {};
       this.columnStates = {};
       this.render();
-      this.setStatus("Data loaded, ready to edit");
+      this.setStatus(this.getTranslation("dataLoaded"));
     } else if (message.type === "error") {
-      this.setStatus(message.message || "Operation failed", true);
+      this.setStatus(
+        message.message || this.getTranslation("operationFailed"),
+        true,
+      );
     } else if (message.type === "success") {
-      this.setStatus(message.message || "Saved");
+      this.setStatus(message.message || this.getTranslation("saved"));
     }
   },
 
@@ -4224,8 +4971,22 @@ const App = {
     }
   },
 
-  setValueAtPathInModel(model, path, value) {
-    if (!model || !path) return;
+  setValueAtPathInModel(
+    model,
+    path,
+    value,
+    preferredType = null,
+    sourceNode = null,
+  ) {
+    if (!model) return;
+    if (!path) {
+      this.model = sourceNode
+        ? this.cloneJsonLike(sourceNode)
+        : this.createJsonNodeFromValue(value, preferredType);
+      this.modelNodeMap = {};
+      this.buildModelNodeMap(this.model, "");
+      return;
+    }
     const parts = this.parsePath(path);
     if (parts.length === 0) return;
     let current = model;
@@ -4246,14 +5007,28 @@ const App = {
     } else {
       node = current.children && current.children[lastPart];
     }
+    const assignNodeAtPath = (nextNode) => {
+      if (typeof lastPart === "number") {
+        if (!current.items) current.items = [];
+        current.items[lastPart] = nextNode;
+      } else {
+        if (!current.children) current.children = {};
+        current.children[lastPart] = nextNode;
+      }
+    };
     if (node) {
-      if (node.kind === "codeText" && String(value) !== String(node.value)) {
-        // codeText was changed by user - convert to string
-        node.kind = "string";
+      if (sourceNode) {
+        assignNodeAtPath(this.cloneJsonLike(sourceNode));
+      } else if (preferredType) {
+        assignNodeAtPath(this.createJsonNodeFromValue(value, preferredType));
+      } else if (node.kind === "codeText") {
+        // Preserve codeText semantics so edited expressions still write back as code.
+        node.kind = "codeText";
         node.value = String(value);
-        node.raw = JSON.stringify(String(value));
-        node.writeMode = "json";
-        delete node.editable;
+        node.raw = String(value);
+        node.writeMode = "code";
+        node.editable = true;
+        node.sourceKind = node.sourceKind || "code";
       } else {
         node.value = value;
         if (node.kind !== "codeText") {
@@ -4268,19 +5043,28 @@ const App = {
         }
       }
     } else {
-      const newNode = this.createJsonNodeFromValue(value);
-      if (typeof lastPart === "number") {
-        if (!current.items) current.items = [];
-        current.items[lastPart] = newNode;
-      } else {
-        if (!current.children) current.children = {};
-        current.children[lastPart] = newNode;
-      }
+      assignNodeAtPath(
+        sourceNode
+          ? this.cloneJsonLike(sourceNode)
+          : this.createJsonNodeFromValue(value, preferredType),
+      );
     }
+    this.modelNodeMap = {};
     this.buildModelNodeMap(this.model, "");
   },
 
-  createJsonNodeFromValue(value) {
+  createJsonNodeFromValue(value, preferredType = null) {
+    if (preferredType === "codeText") {
+      const codeValue = value == null ? "" : String(value);
+      return {
+        kind: "codeText",
+        value: codeValue,
+        raw: codeValue,
+        editable: true,
+        writeMode: "code",
+        sourceKind: "code",
+      };
+    }
     if (value === null || value === undefined) {
       return {
         kind: "null",
@@ -4363,6 +5147,17 @@ const App = {
       String(data) === String(originalNode.value)
     ) {
       return { ...originalNode };
+    }
+    if (originalNode?.kind === "codeText") {
+      return {
+        ...originalNode,
+        kind: "codeText",
+        value: String(data),
+        raw: String(data),
+        writeMode: "code",
+        editable: true,
+        sourceKind: originalNode.sourceKind || "code",
+      };
     }
     if (typeof data === "boolean") {
       return {

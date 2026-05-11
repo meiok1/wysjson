@@ -21,20 +21,30 @@
   ],
   "icon": "media/icon.png",
   "activationEvents": [
-    "onCommand:wysjson.openSelection"
+    "onCommand:wysjson.openSelection",
+    "onCommand:wysjson.openSelectionEnglish"
   ],
   "contributes": {
     "commands": [
       {
         "command": "wysjson.openSelection",
-        "title": "wysJSON: 可视化编辑所选 JS 数据"
+        "title": "%command.openSelection%"
+      },
+      {
+        "command": "wysjson.openSelectionEnglish",
+        "title": "wysJSON: Open data in wysJSON editor"
       }
     ],
     "menus": {
       "editor/context": [
         {
+          "command": "wysjson.openSelectionEnglish",
+          "when": "editorTextFocus && wysjson.lang == 'en'",
+          "group": "1_modification"
+        },
+        {
           "command": "wysjson.openSelection",
-          "when": "(editorLangId == javascript || editorLangId == typescript || editorLangId == javascriptreact || editorLangId == typescriptreact) && editorHasSelection",
+          "when": "editorTextFocus && (wysjson.lang != 'en' || !wysjson.lang)",
           "group": "1_modification"
         }
       ]

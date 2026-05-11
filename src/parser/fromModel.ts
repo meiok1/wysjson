@@ -1,17 +1,11 @@
 /**
  * Intermediate Model to Source Code Generation
- * Converts edited JsonNode back to JavaScript source code
- * 
- * Strategy for codeText nodes:
- * - If unmodified, use original raw source
- * - If modified, parse as JavaScript expression
- * - If parse fails, return error and prevent save
+ * Converts edited JsonNode back to JavaScript source code.
  */
 
-import * as types from '@babel/types';
-import generate from '@babel/generator';
-import * as babelParser from '@babel/parser';
-import { JsonNode } from '../model';
+import * as babelParser from "@babel/parser";
+import { JsonNode } from "../model";
+import { getCommonExpressionParseOptions } from "./parserOptions";
 
 export interface GenerationResult {
   success: boolean;
@@ -23,47 +17,41 @@ export interface GenerationResult {
  * Convert edited JsonNode back to JavaScript source code
  * Handles JSON nodes and code text nodes with validation
  */
-export function modelToCode(model: JsonNode, indent: string = ''): GenerationResult {
+export function modelToCode(
+  model: JsonNode,
+  indent: string = "",
+): GenerationResult {
   try {
-    // Pre-validate all codeText nodes are parseable
-    const validation = validateCodeTextNodes(model);
+    const validation = validateModelCode(model);
     if (!validation.valid) {
       return {
         success: false,
-        error: validation.error || '代码文本节点包含无效的 JavaScript 代码'
+        error: validation.error || "代码文本节点包含无效的 JavaScript 代码",
       };
     }
 
-    const ast = modelToAst(model);
-    if (!ast) {
-      return {
-        success: false,
-        error: '无法转换模型到 AST'
-      };
-    }
-
-    const generatedCode = generate(ast).code;
+    const generatedCode = emitNodeCode(model, 0, indent);
 
     // Apply indentation
     if (indent) {
-      const lines = generatedCode.split('\n');
-      const indented = lines.map((line: string, i: number) => 
-        i === 0 ? line : indent + line
-      ).join('\n');
+      const lines = generatedCode.split("\n");
+      const indented = lines
+        .map((line: string, i: number) => (i === 0 ? line : indent + line))
+        .join("\n");
       return {
         success: true,
-        code: indented
+        code: indented,
       };
     }
 
     return {
       success: true,
-      code: generatedCode
+      code: generatedCode,
     };
   } catch (e) {
     return {
       success: false,
-      error: `代码生成失败: ${(e as any)?.message || '未知错误'}`
+      error: `代码生成失败: ${(e as any)?.message || "未知错误"}`,
     };
   }
 }
@@ -76,33 +64,24 @@ interface ValidationResult {
 /**
  * Recursively validate that all codeText nodes contain valid JavaScript
  */
-function validateCodeTextNodes(model: JsonNode): ValidationResult {
-  if (model.kind === 'codeText') {
-    const code = model.value || model.raw || '';
-    try {
-      babelParser.parseExpression(code, {
-        sourceType: 'module',
-        allowImportExportEverywhere: true
-      });
-      return { valid: true };
-    } catch (e) {
-      return {
-        valid: false,
-        error: `代码文本无效: ${(e as any).message}`
-      };
+export function validateModelCode(model: JsonNode): ValidationResult {
+  if (model.kind === "codeText") {
+    const validation = validateCodeTextNode(model);
+    if (!validation.valid) {
+      return validation;
     }
   }
 
   if (model.children) {
     for (const child of Object.values(model.children)) {
-      const res = validateCodeTextNodes(child);
+      const res = validateModelCode(child);
       if (!res.valid) return res;
     }
   }
 
   if (model.items) {
     for (const item of model.items) {
-      const res = validateCodeTextNodes(item);
+      const res = validateModelCode(item);
       if (!res.valid) return res;
     }
   }
@@ -110,142 +89,216 @@ function validateCodeTextNodes(model: JsonNode): ValidationResult {
   return { valid: true };
 }
 
-function modelToAst(model: JsonNode): any {
-  switch (model.kind) {
-    case 'string':
-      return types.stringLiteral(model.value);
+function validateCodeTextNode(model: JsonNode): ValidationResult {
+  const code = getCodeText(model);
 
-    case 'number':
-      return types.numericLiteral(model.value);
-
-    case 'boolean':
-      return types.booleanLiteral(model.value);
-
-    case 'null':
-      return types.nullLiteral();
-
-    case 'object':
-      return modelToObjectExpression(model);
-
-    case 'array':
-      return modelToArrayExpression(model);
-
-    case 'codeText':
-      // Parse code text back to AST
-      return parseCodeTextSafely(model.raw || model.value);
-
-    default:
-      return null;
+  if (!code.trim()) {
+    return {
+      valid: false,
+      error: "代码文本不能为空",
+    };
   }
-}
 
-function modelToObjectExpression(model: JsonNode): types.ObjectExpression {
-  const properties: (types.ObjectProperty | types.ObjectMethod | types.SpreadElement)[] = [];
-
-  if (model.children) {
-    for (const [key, childModel] of Object.entries(model.children)) {
-      // Skip special markers
-      if (key === '...') {
-        continue;
-      }
-
-      const keyNode = isValidIdentifier(key)
-        ? types.identifier(key)
-        : types.stringLiteral(key);
-
-      if (childModel.kind === 'codeText' && isObjectMethod(childModel.raw || childModel.value)) {
-        // Try to parse as object method
-        const parsed = parseAsObjectMethod(key, childModel.raw || childModel.value);
-        if (parsed) {
-          properties.push(parsed);
-          continue;
-        }
-      }
-
-      const valueNode = modelToAst(childModel);
-      if (valueNode) {
-        properties.push(
-          types.objectProperty(keyNode, valueNode)
-        );
-      }
+  if (looksLikeObjectMethod(code)) {
+    if (tryParseObjectMethod(code)) {
+      return { valid: true };
     }
   }
 
-  return types.objectExpression(properties);
-}
-
-function modelToArrayExpression(model: JsonNode): types.ArrayExpression {
-  const elements: (types.Expression | types.SpreadElement | null)[] = [];
-
-  if (model.items) {
-    for (const item of model.items) {
-      const elem = modelToAst(item);
-      if (elem) {
-        elements.push(elem);
-      } else {
-        elements.push(null);
-      }
-    }
-  }
-
-  return types.arrayExpression(elements);
-}
-
-/**
- * Parse code text safely, returning AST or null if invalid
- */
-function parseCodeTextSafely(code: string): any {
   try {
-    return babelParser.parseExpression(code, {
-      sourceType: 'module',
-      allowImportExportEverywhere: true
-    });
-  } catch {
-    return null;
+    babelParser.parseExpression(code, getCommonExpressionParseOptions());
+    return { valid: true };
+  } catch (e) {
+    return {
+      valid: false,
+      error: `代码文本无效: ${(e as any).message}`,
+    };
   }
 }
 
-/**
- * Check if a string is a valid JavaScript identifier
- */
+function emitNodeCode(
+  model: JsonNode,
+  level: number,
+  baseIndent: string,
+): string {
+  switch (model.kind) {
+    case "string":
+      return JSON.stringify(String(model.value ?? ""));
+    case "number":
+      return Number.isFinite(Number(model.value)) ? String(model.value) : "0";
+    case "boolean":
+      return model.value ? "true" : "false";
+    case "null":
+      return "null";
+    case "codeText":
+      return getCodeText(model);
+    case "object":
+      return emitObjectCode(model, level, baseIndent);
+    case "array":
+      return emitArrayCode(model, level, baseIndent);
+    default:
+      return "null";
+  }
+}
+
+function emitObjectCode(
+  model: JsonNode,
+  level: number,
+  baseIndent: string,
+): string {
+  const entries = Object.entries(model.children || {});
+  if (entries.length === 0) {
+    return "{}";
+  }
+
+  const currentIndent = getIndent(level, baseIndent);
+  const childIndent = getIndent(level + 1, baseIndent);
+  const lines = entries.map(([key, child]) =>
+    emitObjectEntry(key, child, level + 1, baseIndent, childIndent),
+  );
+
+  return ["{", lines.join(",\n"), `${currentIndent}}`].join("\n");
+}
+
+function emitArrayCode(
+  model: JsonNode,
+  level: number,
+  baseIndent: string,
+): string {
+  const items = model.items || [];
+  if (items.length === 0) {
+    return "[]";
+  }
+
+  const currentIndent = getIndent(level, baseIndent);
+  const childIndent = getIndent(level + 1, baseIndent);
+  const lines = items.map((item) =>
+    emitArrayItemCode(item, level + 1, baseIndent, childIndent),
+  );
+
+  return ["[", lines.join(",\n"), `${currentIndent}]`].join("\n");
+}
+
 function isValidIdentifier(str: string): boolean {
   try {
-    const ast = babelParser.parseExpression(str);
-    return types.isIdentifier(ast);
+    const ast = babelParser.parseExpression(
+      str,
+      getCommonExpressionParseOptions(),
+    );
+    return ast.type === "Identifier";
   } catch {
     return false;
   }
 }
 
-/**
- * Check if code text looks like an object method
- */
-function isObjectMethod(code: string): boolean {
-  // Simple heuristic: starts with identifier, then '(', then has '{'
+function emitObjectEntry(
+  key: string,
+  child: JsonNode,
+  level: number,
+  baseIndent: string,
+  childIndent: string,
+): string {
+  if (key === "..." || child.sourceKind === "spread") {
+    return indentRawBlock(getCodeText(child), childIndent);
+  }
+
+  if (child.kind === "codeText" && child.sourceKind === "objectMethod") {
+    const code = getCodeText(child);
+    if (looksLikeObjectMethod(code) && tryParseObjectMethod(code)) {
+      return indentRawBlock(code, childIndent);
+    }
+  }
+
+  const valueCode = emitNodeCode(child, level, baseIndent);
+  const propertyPrefix = `${childIndent}${formatObjectKey(key)}: `;
+
+  if (child.kind === "codeText" && valueCode.includes("\n")) {
+    return indentCodeTextProperty(propertyPrefix, valueCode, childIndent);
+  }
+
+  const valueLines = valueCode.split("\n");
+  if (valueLines.length === 1) {
+    return `${propertyPrefix}${valueCode}`;
+  }
+
+  return `${propertyPrefix}${valueLines[0]}\n${valueLines.slice(1).join("\n")}`;
+}
+
+function emitArrayItemCode(
+  item: JsonNode,
+  level: number,
+  baseIndent: string,
+  childIndent: string,
+): string {
+  const itemCode = emitNodeCode(item, level, baseIndent);
+
+  if (item.kind === "codeText" && itemCode.includes("\n")) {
+    return indentRawBlock(itemCode, childIndent);
+  }
+
+  const lines = itemCode.split("\n");
+  if (lines.length === 1) {
+    return `${childIndent}${itemCode}`;
+  }
+
+  return `${childIndent}${lines[0]}\n${lines.slice(1).join("\n")}`;
+}
+
+function formatObjectKey(key: string): string {
+  return isValidIdentifier(key) ? key : JSON.stringify(key);
+}
+
+function getCodeText(model: JsonNode): string {
+  return String(model.raw ?? model.value ?? "");
+}
+
+function indentCodeTextProperty(
+  propertyPrefix: string,
+  valueCode: string,
+  childIndent: string,
+): string {
+  const [firstLine, ...restLines] = valueCode.split("\n");
+  if (restLines.length === 0) {
+    return `${propertyPrefix}${firstLine}`;
+  }
+
+  return `${propertyPrefix}${firstLine}\n${restLines
+    .map((line) => `${childIndent}${line}`)
+    .join("\n")}`;
+}
+
+function indentRawBlock(code: string, indent: string): string {
+  return code
+    .split("\n")
+    .map((line) => `${indent}${line}`)
+    .join("\n");
+}
+
+function looksLikeObjectMethod(code: string): boolean {
   const trimmed = code.trim();
-  const parenIdx = trimmed.indexOf('(');
+  const parenIdx = trimmed.indexOf("(");
   if (parenIdx <= 0) return false;
-  const braceIdx = trimmed.indexOf('{');
+  const braceIdx = trimmed.indexOf("{");
   return braceIdx > parenIdx;
 }
 
-/**
- * Try to parse code as object method and return ObjectMethod node
- */
-function parseAsObjectMethod(key: string, methodCode: string): types.ObjectMethod | null {
+function tryParseObjectMethod(methodCode: string): boolean {
   try {
-    // Wrap in object literal to parse as object property
     const wrappedCode = `{ ${methodCode} }`;
-    const ast = babelParser.parseExpression(wrappedCode);
-    
-    if (types.isObjectExpression(ast) && ast.properties.length > 0) {
-      const prop = ast.properties[0];
-      if (types.isObjectMethod(prop)) {
-        return prop;
-      }
-    }
+    const ast = babelParser.parseExpression(
+      wrappedCode,
+      getCommonExpressionParseOptions(),
+    );
+
+    return (
+      ast.type === "ObjectExpression" &&
+      ast.properties[0]?.type === "ObjectMethod"
+    );
   } catch {
-    return null;
+    return false;
   }
-  return null;
+}
+
+function getIndent(level: number, baseIndent: string): string {
+  return `${baseIndent}${"  ".repeat(level)}`;
 }

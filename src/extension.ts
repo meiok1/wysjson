@@ -6,9 +6,12 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as babelParser from "@babel/parser";
-import { extractLiteralFromSelection } from "./parser/extractSelection";
+import {
+  extractLiteralFromSelection,
+  extractLiteralFromDocument,
+} from "./parser/extractSelection";
 import { astToModel } from "./parser/toModel";
-import { modelToCode } from "./parser/fromModel";
+import { modelToCode, validateModelCode } from "./parser/fromModel";
 import { JsonNode, SourceInfo, SaveMessage, ExtensionResponse } from "./model";
 
 let extensionContext: vscode.ExtensionContext;
@@ -23,6 +26,16 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(disposable);
+  // Also register an English-only menu command id so we can show a non-localized
+  // label when the user prefers English (the editor context menu labels are
+  // controlled by VS Code localization and cannot be changed at runtime;
+  // using a separate command + menu entry controlled by a context key lets
+  // us present an English label when requested).
+  const disposableEn = vscode.commands.registerCommand(
+    "wysjson.openSelectionEnglish",
+    () => handleOpenSelection(),
+  );
+  context.subscriptions.push(disposableEn);
   console.log("wysJSON extension activated");
 }
 
@@ -39,59 +52,274 @@ async function handleOpenSelection() {
   }
 
   const selection = editor.selection;
-  if (selection.isEmpty) {
-    vscode.window.showErrorMessage("请选择 JavaScript 对象或数组字面量");
-    return;
-  }
-
   const document = editor.document;
-  const selectedText = document.getText(selection);
 
-  // Try to extract literal from selection
-  const extractResult = extractLiteralFromSelection(selectedText);
+  let selectedText: string | undefined;
+  let extractResult: any;
+  let rootModel: JsonNode | undefined;
+  let sourceInfo: SourceInfo | undefined;
 
-  if (!extractResult.success) {
-    vscode.window.showErrorMessage(
-      extractResult.error || "无法识别选区中的数据结构",
-    );
-    if (extractResult.hint) {
-      vscode.window.showInformationMessage(extractResult.hint);
+  if (!selection.isEmpty) {
+    // Preserve existing behavior when user made a selection
+    // If editing a Markdown file and the selection lies inside a fenced code block,
+    // extract the inner code only (strip the surrounding ``` markers).
+    if (document.languageId === "markdown") {
+      const selStartLine = selection.start.line;
+      const selEndLine = selection.end.line;
+      let startFenceLine: number | null = null;
+      for (let i = selStartLine; i >= 0; --i) {
+        const line = document.lineAt(i).text;
+        if (line.trim().startsWith("```")) {
+          startFenceLine = i;
+          break;
+        }
+      }
+      let endFenceLine: number | null = null;
+      if (startFenceLine !== null) {
+        for (let j = startFenceLine + 1; j < document.lineCount; ++j) {
+          const line = document.lineAt(j).text;
+          if (line.trim().startsWith("```")) {
+            endFenceLine = j;
+            break;
+          }
+        }
+      }
+      if (
+        startFenceLine !== null &&
+        endFenceLine !== null &&
+        selStartLine >= startFenceLine + 1 &&
+        selEndLine <= endFenceLine - 1
+      ) {
+        const innerStart = new vscode.Position(startFenceLine + 1, 0);
+        const innerEnd = new vscode.Position(endFenceLine, 0);
+        // Clip selection into inner code region
+        const useStart = selection.start.isBefore(innerStart)
+          ? innerStart
+          : selection.start;
+        const useEnd = selection.end.isAfter(innerEnd)
+          ? innerEnd
+          : selection.end;
+        selectedText = document.getText(new vscode.Range(useStart, useEnd));
+      } else {
+        selectedText = document.getText(selection);
+      }
+    } else {
+      selectedText = document.getText(selection);
     }
-    return;
+    extractResult = extractLiteralFromSelection(selectedText);
+
+    if (!extractResult.success) {
+      vscode.window.showErrorMessage(
+        extractResult.error || "无法识别选区中的数据结构",
+      );
+      if (extractResult.hint) {
+        vscode.window.showInformationMessage(extractResult.hint);
+      }
+      return;
+    }
+
+    if (!extractResult.expression) {
+      vscode.window.showErrorMessage("提取表达式失败");
+      return;
+    }
+
+    try {
+      rootModel = astToModel(extractResult.expression, selectedText);
+    } catch (e) {
+      vscode.window.showErrorMessage(`转换模型失败: ${(e as any).message}`);
+      return;
+    }
+
+    sourceInfo = {
+      uri: document.uri.toString(),
+      selectedText,
+      start: {
+        line: selection.start.line,
+        character: selection.start.character,
+      },
+      end: {
+        line: selection.end.line,
+        character: selection.end.character,
+      },
+      version: document.version,
+      indent: getIndentation(document, selection.start.line),
+      originalLines: extractOriginalLines(document, selection),
+    };
+  } else {
+    // No selection: try to detect a literal at cursor position in the whole document
+    const fullText = document.getText();
+    const offset = document.offsetAt(selection.active);
+
+    const isJsTsLanguage = (id: string) =>
+      id === "javascript" ||
+      id === "javascriptreact" ||
+      id === "typescript" ||
+      id === "typescriptreact";
+    const isPlainTextLanguage = (id: string) => id === "plaintext";
+
+    // If this is a Markdown file, try to detect a fenced code block around the cursor
+    if (document.languageId === "markdown") {
+      const cursorLine = selection.active.line;
+      let startFenceLine: number | null = null;
+      for (let i = cursorLine; i >= 0; --i) {
+        const line = document.lineAt(i).text;
+        if (line.trim().startsWith("```")) {
+          startFenceLine = i;
+          break;
+        }
+      }
+      let endFenceLine: number | null = null;
+      if (startFenceLine !== null) {
+        for (let j = startFenceLine + 1; j < document.lineCount; ++j) {
+          const line = document.lineAt(j).text;
+          if (line.trim().startsWith("```")) {
+            endFenceLine = j;
+            break;
+          }
+        }
+      }
+
+      if (
+        startFenceLine !== null &&
+        endFenceLine !== null &&
+        cursorLine > startFenceLine &&
+        cursorLine < endFenceLine
+      ) {
+        const codeStartPos = new vscode.Position(startFenceLine + 1, 0);
+        const codeEndPos = new vscode.Position(endFenceLine, 0);
+        const codeText = document.getText(
+          new vscode.Range(codeStartPos, codeEndPos),
+        );
+        const codeStartOffset = document.offsetAt(codeStartPos);
+        const offsetInCode = offset - codeStartOffset;
+        extractResult = extractLiteralFromDocument(codeText, offsetInCode);
+
+        if (extractResult.success && extractResult.expression) {
+          const startOffset =
+            typeof extractResult.start === "number"
+              ? extractResult.start
+              : (extractResult.expression.start as number);
+          const endOffset =
+            typeof extractResult.end === "number"
+              ? extractResult.end
+              : (extractResult.expression.end as number);
+          const startPos = document.positionAt(codeStartOffset + startOffset);
+          const endPos = document.positionAt(codeStartOffset + endOffset);
+          selectedText = document.getText(new vscode.Range(startPos, endPos));
+          try {
+            rootModel = astToModel(extractResult.expression, selectedText);
+          } catch (e) {
+            vscode.window.showErrorMessage(
+              `转换模型失败: ${(e as any).message}`,
+            );
+            return;
+          }
+          sourceInfo = {
+            uri: document.uri.toString(),
+            selectedText,
+            start: { line: startPos.line, character: startPos.character },
+            end: { line: endPos.line, character: endPos.character },
+            version: document.version,
+            indent: getIndentation(document, startPos.line),
+            originalLines: extractOriginalLines(
+              document,
+              new vscode.Selection(startPos, endPos),
+            ),
+          };
+        } else {
+          // For markdown outside fenced code blocks, try cursor-based
+          // structural extraction from the raw document before falling back.
+          extractResult = extractLiteralFromDocument(fullText, offset);
+        }
+      } else {
+        extractResult = extractLiteralFromDocument(fullText, offset);
+      }
+    } else {
+      // Non-markdown files: preserve JS/TS behavior, and allow plain text
+      // files to use cursor-based structural extraction.
+      if (isJsTsLanguage(document.languageId)) {
+        extractResult = extractLiteralFromDocument(fullText, offset);
+      } else if (isPlainTextLanguage(document.languageId)) {
+        extractResult = extractLiteralFromDocument(fullText, offset);
+      } else {
+        extractResult = { success: false };
+      }
+    }
+
+    if (extractResult.success && extractResult.expression) {
+      const startOffset =
+        typeof extractResult.start === "number"
+          ? extractResult.start
+          : (extractResult.expression.start as number);
+      const endOffset =
+        typeof extractResult.end === "number"
+          ? extractResult.end
+          : (extractResult.expression.end as number);
+      const startPos = document.positionAt(startOffset);
+      const endPos = document.positionAt(endOffset);
+      selectedText = document.getText(new vscode.Range(startPos, endPos));
+
+      try {
+        rootModel = astToModel(extractResult.expression, selectedText);
+      } catch (e) {
+        vscode.window.showErrorMessage(`转换模型失败: ${(e as any).message}`);
+        return;
+      }
+
+      sourceInfo = {
+        uri: document.uri.toString(),
+        selectedText,
+        start: { line: startPos.line, character: startPos.character },
+        end: { line: endPos.line, character: endPos.character },
+        version: document.version,
+        indent: getIndentation(document, startPos.line),
+        originalLines: extractOriginalLines(
+          document,
+          new vscode.Selection(startPos, endPos),
+        ),
+      };
+    } else {
+      // Fallback: open wysjson with an empty object at the cursor position
+      selectedText = "{}";
+      rootModel = {
+        kind: "object",
+        value: {},
+        raw: "{}",
+        editable: true,
+        writeMode: "json",
+        children: {},
+      } as unknown as JsonNode;
+
+      const pos = selection.active;
+      sourceInfo = {
+        uri: document.uri.toString(),
+        selectedText,
+        start: { line: pos.line, character: pos.character },
+        end: { line: pos.line, character: pos.character },
+        version: document.version,
+        indent: getIndentation(document, pos.line),
+        originalLines: [document.lineAt(pos.line).text],
+      };
+    }
   }
 
-  if (!extractResult.expression) {
-    vscode.window.showErrorMessage("提取表达式失败");
-    return;
-  }
+  console.log("[wysJSON] extracted model kind:", rootModel!.kind);
 
-  // Convert to model
-  let rootModel: JsonNode;
+  // Prepare language preference for webview (persisted in globalState)
+  const userLangPref =
+    (extensionContext.globalState.get<string>("wysjson.language") as string) ||
+    "auto";
+  // Default to English unless user explicitly chose otherwise
+  const effectiveLang =
+    userLangPref && userLangPref !== "auto" ? userLangPref : "en";
+
+  // Expose a context key so package.json menu contributions can show/hide
+  // localized vs. English-only menu entries based on the user's choice.
   try {
-    rootModel = astToModel(extractResult.expression, selectedText);
+    vscode.commands.executeCommand("setContext", "wysjson.lang", effectiveLang);
   } catch (e) {
-    vscode.window.showErrorMessage(`转换模型失败: ${(e as any).message}`);
-    return;
+    console.warn("Failed to set context wysjson.lang", e);
   }
-
-  // Create source info
-  const sourceInfo: SourceInfo = {
-    uri: document.uri.toString(),
-    selectedText,
-    start: {
-      line: selection.start.line,
-      character: selection.start.character,
-    },
-    end: {
-      line: selection.end.line,
-      character: selection.end.character,
-    },
-    version: document.version,
-    indent: getIndentation(document, selection.start.line),
-    originalLines: extractOriginalLines(document, selection),
-  };
-
-  console.log("[wysJSON] extracted model kind:", rootModel.kind);
 
   // Create webview panel
   const panel = vscode.window.createWebviewPanel(
@@ -106,8 +334,12 @@ async function handleOpenSelection() {
     },
   );
 
-  // Set webview HTML
-  panel.webview.html = getWebviewContent(panel.webview);
+  // Set webview HTML (pass effective language and user preference)
+  panel.webview.html = getWebviewContent(
+    panel.webview,
+    effectiveLang,
+    userLangPref,
+  );
 
   // Handle messages from webview
   panel.webview.onDidReceiveMessage(
@@ -123,6 +355,8 @@ async function handleOpenSelection() {
           rootModel,
           sourceInfo,
           readonlyWarnings: [],
+          language: effectiveLang,
+          userLangPref: userLangPref,
         });
       } else {
         await handleWebviewMessage(
@@ -163,6 +397,22 @@ async function handleWebviewMessage(
   sourceInfo: SourceInfo,
   panel: vscode.WebviewPanel,
 ) {
+  if (message.type === "setLanguage") {
+    const langPref = message.language || "auto";
+    await extensionContext.globalState.update("wysjson.language", langPref);
+    const effective = langPref && langPref !== "auto" ? langPref : "en";
+    try {
+      await vscode.commands.executeCommand(
+        "setContext",
+        "wysjson.lang",
+        effective,
+      );
+    } catch (e) {
+      console.warn("Failed to update context wysjson.lang", e);
+    }
+    panel.webview.postMessage({ type: "languageSaved", language: langPref });
+    return;
+  }
   if (message.type === "save") {
     const saveMsg = message as SaveMessage;
 
@@ -216,13 +466,6 @@ async function handleWebviewMessage(
         throw new Error("WorkspaceEdit 应用失败");
       }
 
-      // Format document after edit (optional)
-      try {
-        await vscode.commands.executeCommand("editor.action.formatDocument");
-      } catch {
-        // Formatting is optional, don't fail if unavailable
-      }
-
       panel.webview.postMessage({
         type: "success",
         message: "已写回编辑器",
@@ -256,37 +499,7 @@ function validateCodeTextNodes(model: JsonNode): {
   valid: boolean;
   error?: string;
 } {
-  if (model.kind === "codeText") {
-    const code = model.value || model.raw || "";
-    try {
-      babelParser.parseExpression(code, {
-        sourceType: "module",
-        allowImportExportEverywhere: true,
-      });
-      return { valid: true };
-    } catch (e) {
-      return {
-        valid: false,
-        error: `代码文本包含语法错误: ${(e as any).message}`,
-      };
-    }
-  }
-
-  if (model.children) {
-    for (const child of Object.values(model.children)) {
-      const res = validateCodeTextNodes(child);
-      if (!res.valid) return res;
-    }
-  }
-
-  if (model.items) {
-    for (const item of model.items) {
-      const res = validateCodeTextNodes(item);
-      if (!res.valid) return res;
-    }
-  }
-
-  return { valid: true };
+  return validateModelCode(model);
 }
 
 function getNonce(): string {
@@ -299,7 +512,11 @@ function getNonce(): string {
   return text;
 }
 
-function getWebviewContent(webview: vscode.Webview): string {
+function getWebviewContent(
+  webview: vscode.Webview,
+  htmlLang: string = "en",
+  userLangPref: string = "auto",
+): string {
   const cssUri = webview.asWebviewUri(
     vscode.Uri.file(
       path.join(extensionContext.extensionPath, "media", "webview.css"),
@@ -313,7 +530,7 @@ function getWebviewContent(webview: vscode.Webview): string {
   const nonce = getNonce();
 
   return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${htmlLang}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -328,6 +545,11 @@ function getWebviewContent(webview: vscode.Webview): string {
   <span class="title">📋 wysJSON</span>
   <button id="btnSave" class="accent" title="Save to source file">💾 Save</button>
   <button id="btnCancel" title="Close editor">✕ Cancel</button>
+  <select id="languageSelect" class="language-select" title="Language">
+    <option value="auto">🌐 Auto</option>
+    <option value="en">English</option>
+    <option value="zh-CN">中文 (简体)</option>
+  </select>
   <span class="sep"></span>
   <button id="btnUndo" title="Undo (Ctrl+Z)">↩ Undo</button>
   <button id="btnRedo" title="Redo (Ctrl+Y)">↪ Redo</button>

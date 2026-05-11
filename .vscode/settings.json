@@ -27,5 +27,6 @@
   },
   "[markdown]": {
     "editor.wordWrap": "on"
-  }
+  },
+  "i18n-ally.localesPaths": []
 }
