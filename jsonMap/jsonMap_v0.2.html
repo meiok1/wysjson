@@ -1091,6 +1091,29 @@
             color: #000;
         }
 
+        .context-menu .menu-copy-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .context-menu .menu-copy-row input {
+            width: 56px;
+            padding: 2px 6px;
+            border: 1px solid #cfd6df;
+            border-radius: 3px;
+            font: inherit;
+            font-size: 12px;
+            color: #333;
+            background: #fff;
+            outline: none;
+        }
+
+        .context-menu .menu-copy-row input:focus {
+            border-color: var(--selection-border);
+            box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.12);
+        }
+
         .context-menu .divider {
             height: 1px;
             background: #e0e0e0;
@@ -1252,6 +1275,11 @@
                     deleteColumn: 'Delete column {key}',
                     setObjectNull: 'Set object to null',
                     clearSelectionNodes: 'Delete selected nodes (set to null)',
+                    copyRowPrefix: 'Copy',
+                    copyRowSuffix: 'rows',
+                    copyRowHint: 'Copy the current row multiple times',
+                    copiedRows: 'Copied {n} row(s)',
+                    invalidCopyCount: 'Copy count must be a positive integer',
                     // Type labels
                     'type.array': 'Array',
                     'type.object': 'Object',
@@ -1326,6 +1354,11 @@
                     deleteColumn: '删除列 {key}',
                     setObjectNull: '将对象设为 null',
                     clearSelectionNodes: '删除选区节点（置为 null）',
+                    copyRowPrefix: '复制',
+                    copyRowSuffix: '行',
+                    copyRowHint: '将当前行复制多份',
+                    copiedRows: '已复制 {n} 行',
+                    invalidCopyCount: '复制数量必须是大于 0 的整数',
                     // Type labels
                     'type.array': 'Array',
                     'type.object': '对象',
@@ -1567,7 +1600,9 @@
                 window.addEventListener('pagehide', () => this.saveUIState());
                 window.addEventListener('beforeunload', () => this.saveUIState());
                 document.addEventListener('mouseup', () => this.finishMouseSelection());
-                document.addEventListener('click', () => this.hideContextMenu());
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('#contextMenu')) this.hideContextMenu();
+                });
                 document.getElementById('contextMenu').addEventListener('click', (e) => this.handleContextMenuAction(e));
                 document.getElementById('breadcrumb').addEventListener('click', (e) => this.handleBreadcrumbClick(e));
                 document.getElementById('thumbnailPanel').addEventListener('click', (e) => this.handleThumbnailClick(e));
@@ -2497,6 +2532,11 @@
                 const isArray = Array.isArray(data);
                 const rows = isArray ? data : [data];
                 const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+                const isMatrixArray = isArray && rows.length > 0 && rows.every((row) => Array.isArray(row)) && rows.every((row) => row.length === rows[0].length);
+
+                if (isMatrixArray) {
+                    return this.createMatrixView(data, path);
+                }
                 const isPureObjectArray = isArray && rows.length > 0 && rows.every((row) => isPlainObject(row));
 
                 // Mixed arrays must render row-by-row so each element can recurse independently.
@@ -2734,6 +2774,16 @@
                     addBtn.className = 'add-row-btn';
                     addBtn.textContent = '+ 添加行';
                     addBtn.addEventListener('click', () => this.addRow(path));
+                    addBtn.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.showContextMenu(e.clientX, e.clientY, {
+                            type: 'add-row-button',
+                            arrayPath: path,
+                            path,
+                            value: data,
+                        });
+                    });
                     tableContainer.appendChild(addBtn);
                     wrapper.appendChild(tableContainer);
                     wrapper.appendChild(sideActions);
@@ -2754,6 +2804,110 @@
 
                 wrapper.appendChild(tableContainer);
 
+                return wrapper;
+            },
+
+            createMatrixView(data, path) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'json-table-layout';
+                wrapper.style.marginBottom = '8px';
+
+                const table = document.createElement('table');
+                table.className = 'json-table';
+                table.setAttribute('data-path', path || '');
+                table.setAttribute('data-is-array', 'true');
+
+                const rowCount = data.length;
+                const colCount = rowCount > 0 ? data[0].length : 0;
+
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                const thRowNum = document.createElement('th');
+                thRowNum.className = 'row-num-header';
+                const typeBadge = document.createElement('span');
+                typeBadge.className = 'table-type-badge';
+                typeBadge.textContent = '[]';
+                typeBadge.title = '当前表格节点类型：Array';
+                thRowNum.appendChild(typeBadge);
+                headerRow.appendChild(thRowNum);
+
+                for (let colIndex = 0; colIndex < colCount; colIndex++) {
+                    const th = document.createElement('th');
+                    th.textContent = String(colIndex + 1);
+                    headerRow.appendChild(th);
+                }
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                for (let rowIndex = 0; rowIndex < rowCount; rowIndex++) {
+                    const tr = document.createElement('tr');
+
+                    const tdIdx = document.createElement('td');
+                    tdIdx.className = 'row-num';
+                    tdIdx.style.textAlign = 'center';
+                    tdIdx.style.color = 'var(--text-muted)';
+                    tdIdx.style.fontSize = '11px';
+                    tdIdx.textContent = rowIndex + 1;
+                    tdIdx.title = '点击选中当前整行，拖拽调整顺序，右键打开行菜单';
+                    tdIdx.setAttribute('data-row-index', rowIndex);
+                    tdIdx.setAttribute('data-array-path', path);
+                    tdIdx.classList.add('is-row-draggable');
+                    tdIdx.draggable = true;
+                    tdIdx.addEventListener('dragstart', (e) => {
+                        this.beginStructureDrag({ type: 'row', arrayPath: path || '', rowIndex }, tdIdx, e);
+                    });
+                    tdIdx.addEventListener('dragend', () => this.finishStructureDrag());
+                    tdIdx.addEventListener('dragover', (e) => {
+                        const dragState = this.dragState;
+                        if (!dragState || dragState.type !== 'row' || dragState.arrayPath !== (path || '') || dragState.rowIndex === rowIndex) return;
+                        e.preventDefault();
+                        const rect = tdIdx.getBoundingClientRect();
+                        const position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+                        this.dragState.position = position;
+                        this.dragState.targetRowIndex = rowIndex;
+                        this.updateDragTarget(tdIdx, position);
+                    });
+                    tdIdx.addEventListener('drop', (e) => {
+                        const dragState = this.dragState;
+                        if (!dragState || dragState.type !== 'row' || dragState.arrayPath !== (path || '') || dragState.rowIndex === rowIndex) return;
+                        e.preventDefault();
+                        const position = dragState.position || 'after';
+                        const insertIndex = position === 'before' ? rowIndex : rowIndex + 1;
+                        const targetIndex = dragState.rowIndex < insertIndex ? insertIndex - 1 : insertIndex;
+                        const sourceIndex = dragState.rowIndex;
+                        this.finishStructureDrag();
+                        this.moveRow(path || '', sourceIndex, targetIndex);
+                    });
+                    tdIdx.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.selectRowByNumberCell(tdIdx);
+                    });
+                    tdIdx.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.showContextMenu(e.clientX, e.clientY, {
+                            type: 'row',
+                            arrayPath: path,
+                            rowIndex,
+                            isArrayRow: true,
+                            path: `${path}[${rowIndex}]`,
+                            value: data[rowIndex],
+                        });
+                    });
+                    tr.appendChild(tdIdx);
+
+                    for (let colIndex = 0; colIndex < colCount; colIndex++) {
+                        const td = document.createElement('td');
+                        this.renderCell(td, data[rowIndex][colIndex], `${path}[${rowIndex}][${colIndex}]`, `[${colIndex}]`);
+                        tr.appendChild(td);
+                    }
+
+                    tbody.appendChild(tr);
+                }
+
+                table.appendChild(tbody);
+                wrapper.appendChild(table);
                 return wrapper;
             },
 
@@ -2856,6 +3010,16 @@
                     addBtn.className = 'add-row-btn';
                     addBtn.textContent = '+ 添加项';
                     addBtn.addEventListener('click', () => this.addRow(path));
+                    addBtn.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this.showContextMenu(e.clientX, e.clientY, {
+                            type: 'add-row-button',
+                            arrayPath: path,
+                            path,
+                            value: data,
+                        });
+                    });
                     wrapper.appendChild(addBtn);
                 } else if (isPlainObject(data) && Object.keys(data).length === 0) {
                     const tbody = document.createElement('tbody');
@@ -4035,14 +4199,14 @@
                 if (fillRange) {
                     const value = matrix[0][0];
                     for (const cell of this.getSelectedCells()) {
-                        if (!this.isEditableCell(cell)) continue;
+                        if (!this.isSelectableCell(cell)) continue;
                         updates.push({ path: cell.dataset.path, raw: value });
                     }
                 } else {
                     for (let rowOffset = 0; rowOffset < matrix.length; rowOffset++) {
                         for (let colOffset = 0; colOffset < matrix[rowOffset].length; colOffset++) {
                             const cell = this.getCellByCoordinates(anchor.table, anchor.rowIndex + rowOffset, anchor.colIndex + colOffset);
-                            if (!cell || !this.isEditableCell(cell)) continue;
+                            if (!cell || !this.isSelectableCell(cell)) continue;
                             updates.push({ path: cell.dataset.path, raw: matrix[rowOffset][colOffset] });
                         }
                     }
@@ -4088,7 +4252,7 @@
                         const inSourceRect = row >= this.fillSourceRect.rowStart && row <= this.fillSourceRect.rowEnd && col >= this.fillSourceRect.colStart && col <= this.fillSourceRect.colEnd;
                         if (inSourceRect) continue;
                         const cell = this.getCellByCoordinates(targetRect.table, row, col);
-                        if (!cell || !this.isEditableCell(cell)) continue;
+                        if (!cell || !this.isSelectableCell(cell)) continue;
                         const sourceRow = ((row - this.fillSourceRect.rowStart) % this.fillSourceMatrix.length + this.fillSourceMatrix.length) % this.fillSourceMatrix.length;
                         const sourceCol = ((col - this.fillSourceRect.colStart) % this.fillSourceMatrix[0].length + this.fillSourceMatrix[0].length) % this.fillSourceMatrix[0].length;
                         updates.push({ path: cell.dataset.path, raw: this.fillSourceMatrix[sourceRow][sourceCol] });
@@ -4203,6 +4367,95 @@
                 }
 
                 return this.nullAsString ? '' : null;
+            },
+
+            cloneJsonValue(value) {
+                if (value === undefined) return value;
+                try {
+                    return JSON.parse(JSON.stringify(value));
+                } catch (error) {
+                    return value;
+                }
+            },
+
+            getArrayCopySource(arrayPath) {
+                const arr = this.getValueAtPath(this.data, arrayPath);
+                if (!Array.isArray(arr)) return null;
+                const selectedPath = this.selectedCell?.dataset?.path || this.focusPath || '';
+                const escapedPath = arrayPath ? arrayPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : '';
+                const match = arrayPath
+                    ? selectedPath.match(new RegExp(`^${escapedPath}\\[(\\d+)\\]`))
+                    : selectedPath.match(/^\[(\d+)\]/);
+                const selectedIndex = match ? Number(match[1]) : -1;
+                if (Number.isInteger(selectedIndex) && selectedIndex >= 0 && selectedIndex < arr.length) {
+                    return {
+                        index: selectedIndex,
+                        value: arr[selectedIndex],
+                    };
+                }
+                if (arr.length > 0) {
+                    return {
+                        index: arr.length - 1,
+                        value: arr[arr.length - 1],
+                    };
+                }
+                return {
+                    index: -1,
+                    value: this.createArrayItemTemplate(arr),
+                };
+            },
+
+            copyRows(arrayPath, count = 1) {
+                if (this.editingCell) this.finishEdit(this.editingCell);
+                const arr = this.getValueAtPath(this.data, arrayPath);
+                if (!Array.isArray(arr)) return this.setStatus(this.getTranslation('pathNotArray'), true);
+                const normalizedCount = String(count).trim();
+                if (!/^[1-9]\d*$/.test(normalizedCount)) {
+                    return this.setStatus(this.getTranslation('invalidCopyCount'), true);
+                }
+                const copyCount = Number.parseInt(normalizedCount, 10);
+
+                const source = this.getArrayCopySource(arrayPath);
+                if (!source) return this.setStatus(this.getTranslation('pathNotArray'), true);
+
+                this.pushUndo();
+                const insertIndex = source.index >= 0 ? source.index + 1 : arr.length;
+                const clonedItems = Array.from({ length: copyCount }, () => this.cloneJsonValue(source.value));
+                arr.splice(insertIndex, 0, ...clonedItems);
+                this.pendingCellSelection = this.getArrayItemFocusPath(arrayPath, insertIndex, clonedItems[0]);
+                this.nestedStates = {};
+                this.render();
+                this.setStatus(this.getTranslation('copiedRows', { n: copyCount }));
+            },
+
+            createGrid3x3Node(value) {
+                const isPrimitive = value === null || (typeof value !== 'object' && typeof value !== 'function');
+                return Array.from({ length: 3 }, (_, rowIndex) => Array.from({ length: 3 }, (_, colIndex) => {
+                    if (rowIndex === 0 && colIndex === 0) return this.cloneJsonValue(value);
+                    return isPrimitive ? this.cloneJsonValue(value) : '';
+                }));
+            },
+
+            wrapNodeInGrid3x3(path, value) {
+                if (this.editingCell) this.finishEdit(this.editingCell);
+                const targetPath = this.normalizePath(path);
+                const currentValue = targetPath ? this.getValueAtPath(this.data, targetPath) : this.data;
+                if (currentValue === undefined) return this.setStatus(this.getTranslation('notFoundToFocus'), true);
+
+                this.pushUndo();
+                const wrapped = this.createGrid3x3Node(currentValue);
+                if (targetPath) {
+                    this.setValueAtPath(this.data, targetPath, wrapped);
+                    this.pendingCellSelection = `${targetPath}[0][0]`;
+                } else {
+                    this.data = wrapped;
+                    this.focusPath = '';
+                    this.pendingCellSelection = '[0][0]';
+                }
+                this.nestedStates = {};
+                this.columnStates = {};
+                this.render();
+                this.setStatus('已包裹为 9 宫格 array');
             },
 
             getArrayItemFocusPath(arrayPath, index, itemValue) {
@@ -4742,7 +4995,11 @@
 
                 if (state.type === 'cell' || state.type === 'row') {
                     const path = state.path;
-                    if (state.type === 'cell' && !path) return;
+                    if (state.type === 'cell' && !path && action !== 'wrap-grid-3x3') return;
+                    if (action === 'wrap-grid-3x3') {
+                        this.wrapNodeInGrid3x3(path, state.value);
+                        return;
+                    }
                     if (action === 'focus-node') {
                         this.setFocusPath(path || '');
                         return;
@@ -4783,6 +5040,18 @@
                         this.setValueAtPath(this.data, path, newValue);
                         this.render();
                         this.setStatus(`已将节点 ${path} 改为 ${type}`);
+                        return;
+                    }
+                }
+
+                if (state.type === 'add-row-button') {
+                    if (action === 'add-row') {
+                        this.addRow(state.arrayPath || '');
+                        return;
+                    }
+                    if (action === 'copy-row-count') {
+                        const input = document.querySelector('#contextMenu .copy-row-count-input');
+                        this.copyRows(state.arrayPath || '', input ? input.value : '1');
                         return;
                     }
                 }
@@ -4912,6 +5181,12 @@
                     };
                     const typeActions = (applicableTypeTargets[currentType] || ['array', 'object', 'string', 'number', 'boolean', 'null'])
                         .map((type) => [type, typeLabels[type]]);
+                    if (state?.path !== undefined && state?.path !== null) {
+                        extraActions += `
+                    <div class="divider"></div>
+                    <div class="menu-item" data-action="wrap-grid-3x3">X 9</div>
+                `;
+                    }
                     if (state?.type === 'row' && state?.isArrayRow && typeof state?.rowIndex === 'number' && state?.arrayPath !== undefined) {
                         extraActions += `
                     <div class="divider"></div>
@@ -4939,6 +5214,38 @@
             `;
                 } else if (state?.type === 'delete-row') {
                     menu.innerHTML = `<div class="menu-item" data-action="delete-row">🗑 ${this.getTranslation('deleteRow', { n: state.rowIndex + 1 })}</div>`;
+                } else if (state?.type === 'add-row-button') {
+                    menu.innerHTML = `
+                <div class="menu-item" data-action="add-row">➕ ${this.getTranslation('addChildItem')}</div>
+                <div class="divider"></div>
+                <div class="menu-item menu-copy-row" data-action="copy-row-count" title="${this.getTranslation('copyRowHint')}">
+                    <span>${this.getTranslation('copyRowPrefix')}</span>
+                    <input class="copy-row-count-input" type="text" inputmode="numeric" pattern="[0-9]*" value="1" autocomplete="off" spellcheck="false" aria-label="copy row count">
+                    <span>${this.getTranslation('copyRowSuffix')}</span>
+                </div>
+            `;
+                    requestAnimationFrame(() => {
+                        const input = menu.querySelector('.copy-row-count-input');
+                        if (input) {
+                            input.focus();
+                            input.select();
+                            input.addEventListener('keydown', (ev) => {
+                                ev.stopPropagation();
+                                if (ev.key === 'Enter') {
+                                    ev.preventDefault();
+                                    const actionItem = menu.querySelector('.menu-item[data-action="copy-row-count"]');
+                                    if (actionItem) {
+                                        this.handleContextMenuAction({ target: actionItem, stopPropagation() {} });
+                                    }
+                                } else if (ev.key === 'Escape') {
+                                    ev.preventDefault();
+                                    this.hideContextMenu();
+                                }
+                            });
+                            input.addEventListener('mousedown', (ev) => ev.stopPropagation());
+                            input.addEventListener('click', (ev) => ev.stopPropagation());
+                        }
+                    });
                 } else if (state?.type === 'header') {
                     menu.innerHTML = `
                 <div class="menu-item" data-action="insert-column-before">➕ ${this.getTranslation('insertColumnBefore', { key: state.key })}</div>
