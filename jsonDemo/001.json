@@ -1,0 +1,23 @@
+{
+  "name": "demo111",
+  "items": [
+    {
+      "id": 1,
+      "title": "a"
+    },
+    {
+      "id": 2,
+      "title": [
+        {
+          "subtitle": 1,
+          "zztitle": "sub-a8888888"
+        },
+        {
+          "subtitle": 2,
+          "zztitle": "sub-b"
+        }
+      ]
+    }
+  ],
+  "field1": 9999
+}
