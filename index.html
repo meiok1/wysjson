@@ -11,7 +11,7 @@
     textarea { width: 100%; min-height: 180px; font-family: monospace; }
     .controls { margin: 0.75rem 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
     button { padding: 0.45rem 0.8rem; cursor: pointer; }
-    #error { color: #d92727; min-height: 1.2rem; }
+    #error { color: #d92727; min-height: 1.2rem; font-weight: 600; }
     #tree-view ul { list-style: none; margin: 0.15rem 0 0.15rem 1rem; padding: 0; }
     #tree-view li { margin: 0.15rem 0; }
     table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
@@ -121,7 +121,10 @@
       try {
         return JSON.parse(input.value);
       } catch (e) {
-        error.textContent = 'Invalid JSON input.';
+        const position = String(e && e.message ? e.message : '').match(/position\\s+(\\d+)/i)?.[1];
+        error.textContent = position
+          ? `⚠ Error: Invalid JSON input near character ${position}.`
+          : '⚠ Error: Invalid JSON input.';
         return null;
       }
     }
