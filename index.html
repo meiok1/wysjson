@@ -197,11 +197,25 @@
             border-right: 1px solid var(--toolbar-border);
             display: flex;
             flex-direction: column;
+            position: relative;
             transition: width 0.25s;
         }
 
+        .input-panel:not(.open) {
+            border-right: none;
+            flex: 0 0 0;
+            min-width: 0;
+            width: 0;
+        }
+
         .input-panel.open {
-            width: 400px;
+            width: var(--input-panel-width, 400px);
+        }
+
+        .input-panel.maximized {
+            width: 100%;
+            flex: 1 1 auto;
+            border-right: none;
         }
 
         .input-panel-header {
@@ -221,6 +235,62 @@
         .input-panel-header .apply-btn {
             padding: 4px 10px;
             font-size: 11px;
+        }
+
+        .input-panel-header .panel-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .input-panel-header .panel-actions button {
+            padding: 4px 10px;
+            font-size: 11px;
+        }
+
+        .input-panel-header .panel-actions .close-btn {
+            color: var(--danger);
+            border-color: rgba(217, 48, 37, 0.35);
+        }
+
+        .input-panel-header .panel-actions .close-btn:hover {
+            background: #fce8e6;
+        }
+
+        .input-panel-header .panel-actions .maximize-btn.is-maximized {
+            background: var(--accent-light);
+            border-color: rgba(26, 115, 232, 0.35);
+            color: var(--accent);
+        }
+
+        .input-panel-resize-handle {
+            position: absolute;
+            top: 0;
+            right: -4px;
+            width: 8px;
+            height: 100%;
+            cursor: ew-resize;
+            z-index: 8;
+        }
+
+        .input-panel-resize-handle::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: 2px;
+            width: 3px;
+            height: 34px;
+            transform: translateY(-50%);
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(43, 87, 154, 0.15) 0%, rgba(43, 87, 154, 0.5) 50%, rgba(43, 87, 154, 0.15) 100%);
+        }
+
+        .input-panel.maximized .input-panel-resize-handle {
+            display: none;
+        }
+
+        .main-content.input-maximized .table-view {
+            display: none;
         }
 
         .input-panel textarea {
@@ -1115,7 +1185,8 @@
         <button id="btnMinify" title="Minify JSON">📦 压缩</button>
         <span class="sep"></span>
         <button id="btnCopy" title="Copy JSON">📋 复制JSON</button>
-        <button id="btnExport" class="accent" title="Export JSON">⬇ 导出</button>
+        <button id="btnSendToInput" title="Send JSON to input panel">⇦</button>
+        <button id="btnExport" class="accent" title="Download JSON">⬇</button>
         <span class="sep"></span>
         <button id="btnUndo" title="撤销 (Ctrl+Z)">↩ 撤销</button>
         <button id="btnRedo" title="重做 (Ctrl+Y)">↪ 重做</button>
@@ -1139,8 +1210,13 @@
         <div class="input-panel" id="inputPanel">
             <div class="input-panel-header">
                 <span>📝 JSON 输入</span>
-                <button id="btnApply" class="accent apply-btn">应用</button>
+                <div class="panel-actions">
+                    <button id="btnApply" class="accent apply-btn" title="Send JSON to table view">⇨</button>
+                    <button id="btnMaximizeInput" class="maximize-btn" title="最大化输入面板">⤢ 最大化</button>
+                    <button id="btnCloseInput" class="close-btn" title="完全隐藏输入面板">✕ 关闭</button>
+                </div>
             </div>
+            <div class="input-panel-resize-handle" id="inputPanelResizeHandle" title="拖动调整宽度"></div>
             <textarea id="jsonInput"
                 placeholder='粘贴或编辑 JSON 数据...&#10;&#10;例如:&#10;{"name": "张三", "age": 30, "address": {"city": "北京", "street": "长安街"}}'></textarea>
         </div>
@@ -1210,6 +1286,9 @@
             miniMapResizeDrag: null,
             miniMapCustomOffset: null,
             miniMapWidth: 220,
+            inputPanelMode: 'hidden',
+            inputPanelWidth: 400,
+            inputPanelResizeDrag: null,
             editorScale: 1,
             nullAsString: true,
 
@@ -1221,6 +1300,13 @@
                     ready: 'Ready',
                     title: '📋 wysJSON',
                     toggleInput: '📝 Input JSON',
+                    downloadJson: 'Download JSON',
+                    sendToInput: 'Send JSON to input panel',
+                    sendToView: 'Send JSON to table view',
+                    applyToView: 'Send JSON to table view',
+                    closeInput: '✕ Close',
+                    maximizeInput: '⤢ Maximize',
+                    restoreInput: '↙ Restore',
                     format: '✨ Format',
                     minify: '📦 Minify',
                     copy: '📋 Copy JSON',
@@ -1295,6 +1381,13 @@
                     ready: '就绪',
                     title: '📋 wysJSON',
                     toggleInput: '📝 输入JSON',
+                    downloadJson: '下载 JSON',
+                    sendToInput: '发送 JSON 到输入面板',
+                    sendToView: '发送 JSON 到表格视图',
+                    applyToView: '发送 JSON 到表格视图',
+                    closeInput: '✕ 关闭',
+                    maximizeInput: '⤢ 最大化',
+                    restoreInput: '↙ 还原',
                     format: '✨ 格式化',
                     minify: '📦 压缩',
                     copy: '📋 复制JSON',
@@ -1386,6 +1479,11 @@
                     if (titleEl) titleEl.textContent = t('title');
                     const btnToggleInput = document.getElementById('btnToggleInput');
                     if (btnToggleInput) btnToggleInput.textContent = t('toggleInput');
+                    const btnSendToInput = document.getElementById('btnSendToInput');
+                    if (btnSendToInput) {
+                        btnSendToInput.textContent = '⇦';
+                        btnSendToInput.title = t('sendToInput');
+                    }
                     const btnFormat = document.getElementById('btnFormat');
                     if (btnFormat) btnFormat.textContent = t('format');
                     const btnMinify = document.getElementById('btnMinify');
@@ -1393,7 +1491,10 @@
                     const btnCopy = document.getElementById('btnCopy');
                     if (btnCopy) btnCopy.textContent = t('copy');
                     const btnExport = document.getElementById('btnExport');
-                    if (btnExport) btnExport.textContent = t('export');
+                    if (btnExport) {
+                        btnExport.textContent = '⬇';
+                        btnExport.title = t('downloadJson');
+                    }
                     const btnUndo = document.getElementById('btnUndo');
                     if (btnUndo) btnUndo.textContent = t('undo');
                     const btnRedo = document.getElementById('btnRedo');
@@ -1402,6 +1503,15 @@
                     if (btnSample) btnSample.textContent = t('sample');
                     const btnClearNull = document.getElementById('btnClearNull');
                     if (btnClearNull) btnClearNull.textContent = t('clearNull');
+                    const btnApply = document.getElementById('btnApply');
+                    if (btnApply) btnApply.title = t('applyToView');
+                    const btnMaximizeInput = document.getElementById('btnMaximizeInput');
+                    if (btnMaximizeInput) {
+                        btnMaximizeInput.textContent = this.inputPanelMode === 'maximized' ? t('restoreInput') : t('maximizeInput');
+                        btnMaximizeInput.classList.toggle('is-maximized', this.inputPanelMode === 'maximized');
+                    }
+                    const btnCloseInput = document.getElementById('btnCloseInput');
+                    if (btnCloseInput) btnCloseInput.textContent = t('closeInput');
                     const chk = document.getElementById('chkNullAsString');
                     if (chk && chk.parentElement) {
                         chk.parentElement.childNodes.forEach((n) => {
@@ -1450,6 +1560,7 @@
                 if (thumbnailChk) thumbnailChk.checked = this.thumbnailEnabled;
                 const quickJumpChk = document.getElementById('chkQuickJump');
                 if (quickJumpChk) quickJumpChk.checked = this.miniMapEnabled;
+                this.applyInputPanelLayout();
                 this.applyEditorScale();
                 this.setStatus(this.getTranslation('ready'));
             },
@@ -1463,6 +1574,8 @@
                     this.miniMapEnabled = !!state.quickJumpEnabled;
                     this.thumbnailWidth = Math.max(220, Number(state.thumbnailWidth) || this.thumbnailWidth);
                     this.miniMapWidth = Math.max(220, Number(state.quickJumpWidth) || this.miniMapWidth);
+                    this.inputPanelMode = ['hidden', 'normal', 'maximized'].includes(state.inputPanelMode) ? state.inputPanelMode : 'hidden';
+                    this.inputPanelWidth = Math.max(280, Number(state.inputPanelWidth) || this.inputPanelWidth);
                     this.thumbnailCustomOffset = state.thumbnailOffset && Number.isFinite(state.thumbnailOffset.x) && Number.isFinite(state.thumbnailOffset.y)
                         ? { x: state.thumbnailOffset.x, y: state.thumbnailOffset.y }
                         : null;
@@ -1483,6 +1596,8 @@
                         quickJumpEnabled: quickJumpChk ? !!quickJumpChk.checked : this.miniMapEnabled,
                         thumbnailWidth: this.thumbnailWidth,
                         quickJumpWidth: this.miniMapWidth,
+                        inputPanelMode: this.inputPanelMode,
+                        inputPanelWidth: this.inputPanelWidth,
                         thumbnailOffset: this.thumbnailCustomOffset,
                         quickJumpOffset: this.miniMapCustomOffset,
                     }));
@@ -1521,10 +1636,14 @@
                 const commitActive = () => { if (this.editingCell) this.finishEdit(this.editingCell); };
                 document.getElementById('btnToggleInput').addEventListener('click', () => { commitActive(); this.toggleInput(); });
                 document.getElementById('btnApply').addEventListener('click', () => { commitActive(); this.applyInput(); });
+                document.getElementById('btnSendToInput').addEventListener('click', () => { commitActive(); this.sendToInputPanel(); });
+                document.getElementById('btnMaximizeInput').addEventListener('click', () => { commitActive(); this.toggleMaximizeInputPanel(); });
+                document.getElementById('btnCloseInput').addEventListener('click', () => { commitActive(); this.hideInputPanel(); });
+                document.getElementById('inputPanelResizeHandle').addEventListener('mousedown', (e) => this.startInputPanelResize(e));
                 document.getElementById('btnFormat').addEventListener('click', () => { commitActive(); this.formatJSON(); });
                 document.getElementById('btnMinify').addEventListener('click', () => { commitActive(); this.minifyJSON(); });
                 document.getElementById('btnCopy').addEventListener('click', () => { commitActive(); this.copyJSON(); });
-                document.getElementById('btnExport').addEventListener('click', () => { commitActive(); this.exportJSON(); });
+                document.getElementById('btnExport').addEventListener('click', () => { commitActive(); this.downloadJSON(); });
                 document.getElementById('btnSample').addEventListener('click', () => { commitActive(); this.loadSample(); });
                 if (document.getElementById('btnUndo')) {
                     document.getElementById('btnUndo').addEventListener('click', () => { commitActive(); this.undo(); });
@@ -1564,6 +1683,15 @@
                 document.addEventListener('cut', (e) => this.handleCut(e));
                 window.addEventListener('pagehide', () => this.saveUIState());
                 window.addEventListener('beforeunload', () => this.saveUIState());
+                document.addEventListener('mousemove', (e) => {
+                    if (!this.inputPanelResizeDrag) return;
+                    const nextWidth = Math.min(this.inputPanelResizeDrag.maxWidth, Math.max(this.inputPanelResizeDrag.minWidth, this.inputPanelResizeDrag.startWidth + (e.clientX - this.inputPanelResizeDrag.startX)));
+                    this.inputPanelMode = 'normal';
+                    this.inputPanelWidth = nextWidth;
+                    this.applyInputPanelLayout();
+                    this.saveUIState();
+                });
+                document.addEventListener('mouseup', () => { this.inputPanelResizeDrag = null; });
                 document.addEventListener('mouseup', () => this.finishMouseSelection());
                 document.addEventListener('click', () => this.hideContextMenu());
                 document.getElementById('contextMenu').addEventListener('click', (e) => this.handleContextMenuAction(e));
@@ -1663,11 +1791,68 @@
                 this.updateMiniMapPosition();
             },
 
+            applyInputPanelLayout() {
+                const inputPanel = document.getElementById('inputPanel');
+                const mainContent = document.querySelector('.main-content');
+                if (!inputPanel || !mainContent) return;
+                inputPanel.classList.toggle('open', this.inputPanelMode !== 'hidden');
+                inputPanel.classList.toggle('maximized', this.inputPanelMode === 'maximized');
+                mainContent.classList.toggle('input-maximized', this.inputPanelMode === 'maximized');
+                if (this.inputPanelMode === 'normal') {
+                    inputPanel.style.setProperty('--input-panel-width', `${this.inputPanelWidth}px`);
+                    inputPanel.style.width = `${this.inputPanelWidth}px`;
+                } else {
+                    inputPanel.style.removeProperty('--input-panel-width');
+                    inputPanel.style.width = '';
+                }
+                const btnMaximizeInput = document.getElementById('btnMaximizeInput');
+                if (btnMaximizeInput) {
+                    btnMaximizeInput.textContent = this.inputPanelMode === 'maximized' ? this.getTranslation('restoreInput') : this.getTranslation('maximizeInput');
+                    btnMaximizeInput.classList.toggle('is-maximized', this.inputPanelMode === 'maximized');
+                }
+            },
+
+            openInputPanel(mode = 'normal', focus = true) {
+                this.inputPanelMode = mode;
+                this.applyInputPanelLayout();
+                this.saveUIState();
+                if (focus && mode !== 'hidden') document.getElementById('jsonInput')?.focus();
+            },
+
+            hideInputPanel() {
+                this.inputPanelMode = 'hidden';
+                this.applyInputPanelLayout();
+                this.saveUIState();
+            },
+
+            toggleMaximizeInputPanel() {
+                this.inputPanelMode = this.inputPanelMode === 'maximized' ? 'normal' : 'maximized';
+                this.applyInputPanelLayout();
+                this.saveUIState();
+                if (this.inputPanelMode !== 'hidden') document.getElementById('jsonInput')?.focus();
+            },
+
+            startInputPanelResize(e) {
+                if (this.inputPanelMode === 'maximized') return;
+                const inputPanel = document.getElementById('inputPanel');
+                const mainContent = document.querySelector('.main-content');
+                if (!inputPanel || !mainContent) return;
+                this.inputPanelResizeDrag = {
+                    startX: e.clientX,
+                    startWidth: inputPanel.offsetWidth,
+                    minWidth: 280,
+                    maxWidth: Math.max(280, mainContent.clientWidth - 240),
+                };
+                e.preventDefault();
+                e.stopPropagation();
+            },
+
             // ===== Input Panel =====
             toggleInput() {
-                document.getElementById('inputPanel').classList.toggle('open');
-                if (document.getElementById('inputPanel').classList.contains('open')) {
-                    document.getElementById('jsonInput').focus();
+                if (this.inputPanelMode === 'hidden') {
+                    this.openInputPanel('normal');
+                } else {
+                    this.hideInputPanel();
                 }
             },
 
@@ -1686,12 +1871,22 @@
                 }
             },
 
+            sendToInputPanel() {
+                if (this.data === null) return this.setStatus('没有数据', true);
+                const json = JSON.stringify(this.data, null, 2);
+                document.getElementById('jsonInput').value = json;
+                if (this.inputPanelMode === 'hidden') this.openInputPanel('normal', false);
+                else this.applyInputPanelLayout();
+                this.setStatus('JSON 已发送到输入面板');
+            },
+
             // ===== Actions =====
             formatJSON() {
                 if (this.data === null) return this.setStatus('没有数据', true);
                 const formatted = JSON.stringify(this.data, null, 2);
                 document.getElementById('jsonInput').value = formatted;
-                document.getElementById('inputPanel').classList.add('open');
+                if (this.inputPanelMode === 'hidden') this.openInputPanel('normal', false);
+                else this.applyInputPanelLayout();
                 this.setStatus('JSON 已格式化');
             },
 
@@ -1699,7 +1894,8 @@
                 if (this.data === null) return this.setStatus('没有数据', true);
                 const minified = JSON.stringify(this.data);
                 document.getElementById('jsonInput').value = minified;
-                document.getElementById('inputPanel').classList.add('open');
+                if (this.inputPanelMode === 'hidden') this.openInputPanel('normal', false);
+                else this.applyInputPanelLayout();
                 this.setStatus('JSON 已压缩');
             },
 
@@ -1710,12 +1906,19 @@
                 });
             },
 
-            exportJSON() {
+            downloadJSON() {
                 if (this.data === null) return this.setStatus('没有数据', true);
                 const json = JSON.stringify(this.data, null, 2);
-                document.getElementById('jsonInput').value = json;
-                document.getElementById('inputPanel').classList.add('open');
-                this.setStatus('JSON 已导出到输入面板');
+                const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `wysJSON-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+                this.setStatus('JSON 已下载');
             },
 
             loadSample() {
