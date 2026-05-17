@@ -61,6 +61,7 @@
     function typeName(value) {
       if (Array.isArray(value)) return 'array';
       if (value === null) return 'null';
+      if (value === undefined) return 'undefined';
       return typeof value;
     }
 
@@ -121,7 +122,7 @@
       try {
         return JSON.parse(input.value);
       } catch (e) {
-        const position = String(e && e.message ? e.message : '').match(/position\\s+(\\d+)/i)?.[1];
+        const position = String(e && e.message ? e.message : '').match(/position\s+(\d+)/i)?.[1];
         error.textContent = position
           ? `⚠ Error: Invalid JSON input near character ${position}.`
           : '⚠ Error: Invalid JSON input.';
