@@ -21,9 +21,9 @@
 </head>
 <body>
   <h1>WYS JSON Editor</h1>
-  <p>Edit JSON, then switch between tree and table views.</p>
-  <label for="json-input">JSON Input</label>
-  <textarea id="json-input">{
+  <p id="editor-instructions">Edit JSON, then switch between tree and table views.</p>
+  <label for="json-input">JSON Input:</label>
+  <textarea id="json-input" aria-describedby="editor-instructions">{
   "project": "wysjson",
   "features": {
     "editor": true,
@@ -121,9 +121,14 @@
       try {
         return JSON.parse(input.value);
       } catch (e) {
-        error.textContent = `Invalid JSON: ${e.message}`;
+        error.textContent = 'Invalid JSON input.';
         return null;
       }
+    }
+
+    function setActiveView(treeActive) {
+      treeButton.setAttribute('aria-pressed', treeActive ? 'true' : 'false');
+      tableButton.setAttribute('aria-pressed', treeActive ? 'false' : 'true');
     }
 
     function renderTree() {
@@ -136,6 +141,7 @@
       treeView.appendChild(root);
       treeView.classList.remove('hidden');
       tableView.classList.add('hidden');
+      setActiveView(true);
     }
 
     function renderTable() {
@@ -159,6 +165,7 @@
 
       tableView.classList.remove('hidden');
       treeView.classList.add('hidden');
+      setActiveView(false);
     }
 
     treeButton.addEventListener('click', renderTree);
