@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WYS JSON Editor</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: Arial, sans-serif; margin: 1.5rem; }
+    h1 { margin-top: 0; }
+    textarea { width: 100%; min-height: 180px; font-family: monospace; }
+    .controls { margin: 0.75rem 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    button { padding: 0.45rem 0.8rem; cursor: pointer; }
+    #error { color: #d92727; min-height: 1.2rem; }
+    #tree-view ul { list-style: none; margin: 0.15rem 0 0.15rem 1rem; padding: 0; }
+    #tree-view li { margin: 0.15rem 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; }
+    th, td { border: 1px solid #999; text-align: left; padding: 0.4rem; font-family: monospace; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>WYS JSON Editor</h1>
+  <p>Edit JSON, then switch between tree and table views.</p>
+  <label for="json-input">JSON</label>
+  <textarea id="json-input" aria-label="JSON input">{
+  "project": "wysjson",
+  "features": {
+    "editor": true,
+    "views": ["tree", "table"]
+  }
+}</textarea>
+
+  <div class="controls">
+    <button id="show-tree" type="button">Tree View</button>
+    <button id="show-table" type="button">Table View</button>
+  </div>
+
+  <div id="error" role="alert"></div>
+
+  <section id="tree-view" aria-label="Tree view"></section>
+
+  <section id="table-view" class="hidden" aria-label="Table view">
+    <table>
+      <thead>
+        <tr><th>Path</th><th>Type</th><th>Value</th></tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </section>
+
+  <script>
+    const input = document.getElementById('json-input');
+    const treeButton = document.getElementById('show-tree');
+    const tableButton = document.getElementById('show-table');
+    const treeView = document.getElementById('tree-view');
+    const tableView = document.getElementById('table-view');
+    const tableBody = document.getElementById('table-body');
+    const error = document.getElementById('error');
+
+    function typeName(value) {
+      if (Array.isArray(value)) return 'array';
+      if (value === null) return 'null';
+      return typeof value;
+    }
+
+    function stringifyValue(value) {
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number' || typeof value === 'boolean' || value === null) return String(value);
+      return JSON.stringify(value);
+    }
+
+    function buildTree(name, value) {
+      const item = document.createElement('li');
+      const valueType = typeName(value);
+
+      if (valueType === 'object' || valueType === 'array') {
+        const label = document.createElement('strong');
+        label.textContent = `${name}: ${valueType}`;
+        item.appendChild(label);
+
+        const children = document.createElement('ul');
+        const entries = valueType === 'array'
+          ? value.map((child, index) => [index, child])
+          : Object.entries(value);
+
+        entries.forEach(([key, child]) => {
+          children.appendChild(buildTree(String(key), child));
+        });
+        item.appendChild(children);
+      } else {
+        item.textContent = `${name}: ${stringifyValue(value)} (${valueType})`;
+      }
+
+      return item;
+    }
+
+    function flatten(value, path = '$', rows = []) {
+      const kind = typeName(value);
+      rows.push({ path, kind, value: stringifyValue(value) });
+
+      if (kind === 'object') {
+        Object.entries(value).forEach(([key, child]) => flatten(child, `${path}.${key}`, rows));
+      } else if (kind === 'array') {
+        value.forEach((child, index) => flatten(child, `${path}[${index}]`, rows));
+      }
+
+      return rows;
+    }
+
+    function parseInput() {
+      error.textContent = '';
+      try {
+        return JSON.parse(input.value);
+      } catch (e) {
+        error.textContent = `Invalid JSON: ${e.message}`;
+        return null;
+      }
+    }
+
+    function renderTree() {
+      const parsed = parseInput();
+      if (parsed === null) return;
+
+      treeView.textContent = '';
+      const root = document.createElement('ul');
+      root.appendChild(buildTree('$', parsed));
+      treeView.appendChild(root);
+      treeView.classList.remove('hidden');
+      tableView.classList.add('hidden');
+    }
+
+    function renderTable() {
+      const parsed = parseInput();
+      if (parsed === null) return;
+
+      tableBody.textContent = '';
+      flatten(parsed).forEach((row) => {
+        const tr = document.createElement('tr');
+        const path = document.createElement('td');
+        const kind = document.createElement('td');
+        const value = document.createElement('td');
+
+        path.textContent = row.path;
+        kind.textContent = row.kind;
+        value.textContent = row.value;
+
+        tr.append(path, kind, value);
+        tableBody.appendChild(tr);
+      });
+
+      tableView.classList.remove('hidden');
+      treeView.classList.add('hidden');
+    }
+
+    treeButton.addEventListener('click', renderTree);
+    tableButton.addEventListener('click', renderTable);
+    renderTree();
+  </script>
+</body>
+</html>
