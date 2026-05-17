@@ -22,7 +22,8 @@
 <body>
   <h1>WYS JSON Editor</h1>
   <p>Edit JSON, then switch between tree and table views.</p>
-  <label for="json-input">JSON Input</label><textarea id="json-input">{
+  <label for="json-input">JSON Input</label>
+  <textarea id="json-input">{
   "project": "wysjson",
   "features": {
     "editor": true,
@@ -97,18 +98,22 @@
       return item;
     }
 
-    function flatten(value, path = '$', rows = null) {
-      const allRows = rows ?? [];
-      const kind = typeName(value);
-      allRows.push({ path, kind, value: stringifyValue(value) });
+    function flatten(value) {
+      const rows = [];
 
-      if (kind === 'object') {
-        Object.entries(value).forEach(([key, child]) => flatten(child, `${path}.${key}`, allRows));
-      } else if (kind === 'array') {
-        value.forEach((child, index) => flatten(child, `${path}[${index}]`, allRows));
+      function walk(node, path) {
+        const kind = typeName(node);
+        rows.push({ path, kind, value: stringifyValue(node) });
+
+        if (kind === 'object') {
+          Object.entries(node).forEach(([key, child]) => walk(child, `${path}.${key}`));
+        } else if (kind === 'array') {
+          node.forEach((child, index) => walk(child, `${path}[${index}]`));
+        }
       }
 
-      return allRows;
+      walk(value, '$');
+      return rows;
     }
 
     function parseInput() {
