@@ -2812,9 +2812,6 @@
                 wrapper.className = 'json-table-layout';
                 wrapper.style.marginBottom = '8px';
 
-                const tableContainer = document.createElement('div');
-                tableContainer.style.display = 'inline-block';
-
                 const table = document.createElement('table');
                 table.className = 'json-table';
                 table.setAttribute('data-path', path || '');
@@ -2910,33 +2907,23 @@
                 }
 
                 table.appendChild(tbody);
-                tableContainer.appendChild(table);
-
-                const addRowBtn = document.createElement('button');
-                addRowBtn.className = 'add-row-btn';
-                addRowBtn.textContent = '+ 添加行';
-                addRowBtn.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.showContextMenu(e.clientX, e.clientY, {
-                        type: 'add-row-button',
-                        arrayPath: path,
-                        path,
-                        value: data,
-                    });
-                });
-                addRowBtn.addEventListener('click', () => this.addRow(path));
-                tableContainer.appendChild(addRowBtn);
+                wrapper.appendChild(table);
 
                 const sideActions = document.createElement('div');
                 sideActions.className = 'table-side-actions';
+
                 const addColumnBtn = document.createElement('button');
                 addColumnBtn.className = 'add-column-btn';
                 addColumnBtn.textContent = '+ 添加列';
                 addColumnBtn.addEventListener('click', () => this.addColumn(path));
                 sideActions.appendChild(addColumnBtn);
 
-                wrapper.appendChild(tableContainer);
+                const addRowBtn = document.createElement('button');
+                addRowBtn.className = 'add-row-btn';
+                addRowBtn.textContent = '+ 添加行';
+                addRowBtn.addEventListener('click', () => this.addRow(path));
+                sideActions.appendChild(addRowBtn);
+
                 wrapper.appendChild(sideActions);
                 return wrapper;
             },

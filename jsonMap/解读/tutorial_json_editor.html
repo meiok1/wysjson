@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>JSON 编辑器学习向导 — 逐步拆解</title>
+  <style>
+    :root{--bg:#f6f7f9;--panel:#ffffff;--muted:#6b7280;--accent:#1e90ff;--border:#e2e8f0}
+    html,body{height:100%;margin:0;font-family:Segoe UI, system-ui, 'PingFang SC', 'Microsoft YaHei', Arial}
+    .app{display:flex;height:100vh;background:var(--bg)}
+    .sidebar{width:360px;background:var(--panel);border-right:1px solid var(--border);padding:14px;overflow:auto}
+    .main{flex:1;display:flex;flex-direction:column}
+    .topbar{height:56px;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+    h1{font-size:16px;margin:0}
+    .controls{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+    label{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+    input[type=range]{width:160px}
+    textarea.json-input{width:100%;height:160px;font-family:Consolas,monospace;border:1px solid var(--border);padding:8px;border-radius:6px}
+    .preview-area{flex:1;display:flex;gap:12px;align-items:stretch;padding:12px;overflow:auto}
+    .canvas{flex:1;background:linear-gradient(180deg,#fff,#fbfdff);border-radius:8px;border:1px solid var(--border);padding:12px;position:relative}
+    .inspector{width:360px;background:var(--panel);border-left:1px solid var(--border);padding:12px;overflow:auto}
+    .single-cell{display:inline-flex;align-items:center;justify-content:center;background:#fff;border:1px solid #cbd5e1;border-radius:4px}
+    .tree{font-family:Consolas,monospace;font-size:13px;line-height:1.45}
+    .node{border-left:2px dashed transparent;padding-left:8px;margin:6px 0}
+    .node.collapsed>.children{display:none}
+    .node .meta{font-size:12px;color:var(--muted)}
+    .btn{background:var(--accent);color:#fff;border:0;padding:6px 10px;border-radius:5px;cursor:pointer}
+    .btn.secondary{background:#efefef;color:#222}
+    .guide{background:#f8fafc;padding:10px;border-radius:6px;border:1px solid var(--border)}
+    .step-title{font-weight:700}
+    .kv{font-size:13px;color:var(--muted);margin-top:6px}
+    .code{background:#0f172a;color:#fff;padding:6px;border-radius:4px;font-family:Consolas,monospace;font-size:12px}
+    .footer{height:44px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 12px}
+    .controls-row{display:flex;gap:8px;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>JSON 编辑器学习向导</h1>
+      <p class="kv">目标：从空 HTML 开始，逐步掌握单元绘制、递归渲染、样式与交互</p>
+
+      <div class="guide" id="guide">
+        <div class="step-title" id="guide-title">步骤 1：单元绘制（Cell）</div>
+        <div id="guide-desc">了解单个表格单元如何绘制：HTML 元素、样式、尺寸、内边距、边框、文本渲染。</div>
+        <div class="kv">知识点：</div>
+        <ul>
+          <li>DOM 与 CSS 基本布局</li>
+          <li>盒模型：padding / border / margin / width</li>
+          <li>可视化参数：font-size、line-height、min-width</li>
+          <li>如何把一个单元抽象成数据到视图的映射</li>
+        </ul>
+        <div style="margin-top:8px" class="controls-row">
+          <button class="btn" id="btnPrev">上一步</button>
+          <button class="btn" id="btnNext">下一步</button>
+          <button class="btn secondary" id="btnReset">重置示例 JSON</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>示例 JSON</label>
+        <textarea id="jsonInput" class="json-input">{
+  "name": "Alice",
+  "age": 28,
+  "contact": { "email": "alice@example.com", "phone": null },
+  "tags": ["engineer","frontend"],
+  "active": true
+}</textarea>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button class="btn" id="applyJson">应用渲染</button>
+          <button class="btn secondary" id="btnShowSource">显示源码</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>参数（实时反应） <span id="paramHint" style="color:var(--muted);font-size:12px"></span></label>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <span class="kv">单元宽度</span>
+          <input id="cellWidth" type="range" min="40" max="420" value="140">
+          <span id="cellWidthVal">140px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <span class="kv">内边距</span>
+          <input id="cellPad" type="range" min="0" max="20" value="6">
+          <span id="cellPadVal">6px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <span class="kv">字体大小</span>
+          <input id="fontSize" type="range" min="10" max="20" value="13">
+          <span id="fontSizeVal">13px</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <label>显示嵌套边框 <input id="showNested" type="checkbox" checked></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <label>默认折叠深度 <input id="collapseDepth" type="number" min="0" max="6" value="1" style="width:60px;margin-left:6px"></label>
+        </div>
+      </div>
+
+    </aside>
+
+    <section class="main">
+      <div class="topbar">
+        <div style="display:flex;flex-direction:column">
+          <div style="font-weight:700">预览（Canvas）</div>
+          <div style="font-size:12px;color:var(--muted)">逐步观察单元与 JSON 渲染器的组成</div>
+        </div>
+      </div>
+
+      <div class="preview-area">
+        <div class="canvas" id="canvas">
+          <div style="margin-bottom:8px;font-size:13px;color:var(--muted)">单元绘制示例：</div>
+          <div id="singleCellWrap"></div>
+          <hr style="margin:12px 0">
+          <div style="margin-bottom:8px;font-size:13px;color:var(--muted)">递归 JSON 渲染（可折叠）：</div>
+          <div id="jsonTree" class="tree"></div>
+        </div>
+
+        <aside class="inspector">
+          <div style="font-weight:700">检查器 / 教学笔记</div>
+          <div id="notes" style="margin-top:8px">按步骤学习，右侧会显示当前步骤的关键知识点与可操作练习。</div>
+
+          <div style="margin-top:12px">
+            <div style="font-weight:700">当前步骤要点</div>
+            <div id="stepPoints" style="margin-top:6px;color:var(--muted)"></div>
+
+            <div style="margin-top:12px">
+              <div style="font-weight:700">源码片段</div>
+              <pre id="codeExample" class="code">// 代码片段将显示在这里</pre>
+            </div>
+
+            <div style="margin-top:12px">
+              <div style="font-weight:700">工程最佳实践提示</div>
+              <div id="tips" style="margin-top:6px;color:var(--muted)"></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="footer">
+        <div style="font-size:13px;color:var(--muted)">可以随时在左侧编辑 JSON 或参数，点“应用渲染”查看变化。</div>
+        <div>
+          <button class="btn secondary" id="openOriginal">打开原始页面</button>
+          <button class="btn" id="exportHtml">导出静态 HTML</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // 教学步骤：每一步包括标题、描述、要点与示例代码
+    const STEPS = [
+      {
+        title: '单元绘制（Cell）',
+        desc: '从纯 HTML/CSS 绘制一个单元格，掌握盒模型与文本对齐。',
+        points: ['DOM 元素结构：一个容器 + 文本', 'CSS 盒模型：width / padding / border / border-radius', '可复用的 CSS class 抽象'],
+        code: `function drawCell(text, opts){\n  const el = document.createElement('div');\n  el.className='single-cell';\n  el.style.minWidth = opts.width+'px';\n  el.style.padding = opts.padding+'px';\n  el.style.fontSize = opts.fontSize+'px';\n  el.textContent = text;\n  return el;\n}`
+      },
+      {
+        title: '数据到视图的映射',
+        desc: '如何把一个数据项（字符串、数字、对象、数组）映射为不同的视图（单元/嵌套）',
+        points: ['类型判断：typeof / Array.isArray', '为不同类型返回不同 DOM 结构', '保持最小可变状态（Pure render）'],
+        code: `function renderValue(key, value, depth, opts){\n  if(value===null) return drawCell('null', opts);\n  if(typeof value==='object') return renderObjectOrArray(key, value, depth+1);\n  return drawCell(String(value), opts);\n}`
+      },
+      {
+        title: '递归渲染与折叠',
+        desc: '用递归函数把任意深度的 JSON 渲染为嵌套 DOM，并支持折叠展开',
+        points: ['递归基准条件（基本类型）', '递归入口（object/array）', '折叠开关通过 CSS class 控制显示'],
+        code: `function renderObjectOrArray(key, obj, depth){\n  const node = document.createElement('div');\n  node.className='node';\n  const header = document.createElement('div');\n  header.textContent = key||'(root)';\n  const children = document.createElement('div');\n  children.className='children';\n  for(const k in obj){\n    children.appendChild(renderKey(k,obj[k],depth+1));\n  }\n  node.appendChild(header);node.appendChild(children);return node;\n}`
+      },
+      {
+        title: '样式与性能考虑',
+        desc: '优化样式、避免重排，按需渲染与事件委托',
+        points: ['尽量使用 CSS class 而非频繁设置 style', '事件委托管理大量节点的交互', '虚拟化/按需展开以优化性能'],
+        code: `// 使用事件委托处理折叠\ncontainer.addEventListener('click', e=>{\n  const header = e.target.closest('.node > .hdr');\n  if(header){ header.parentNode.classList.toggle('collapsed'); }\n});`
+      },
+      {
+        title: '组合与复用',
+        desc: '把单元、行、表格拆分为小组件，组合构建更复杂 UI',
+        points: ['函数式组件：接收 data + opts 返回 DOM', '最低耦合：仅通过参数改变行为', '把常用样式抽象为 CSS 类'],
+        code: `// 例：cell + renderer 组合\nconst cell = drawCell('x',opts);\nconst list = renderArray(...);\ncontainer.append(cell, list);`
+      }
+    ];
+
+    // 状态
+    let stepIndex = 0;
+    const state = {
+      opts: { width:140, padding:6, fontSize:13, showNested:true, collapseDepth:1 },
+      json: null
+    };
+
+    // DOM
+    const el = {
+      jsonInput: document.getElementById('jsonInput'),
+      applyJson: document.getElementById('applyJson'),
+      btnNext: document.getElementById('btnNext'),
+      btnPrev: document.getElementById('btnPrev'),
+      singleCellWrap: document.getElementById('singleCellWrap'),
+      jsonTree: document.getElementById('jsonTree'),
+      cellWidth: document.getElementById('cellWidth'),
+      cellPad: document.getElementById('cellPad'),
+      fontSize: document.getElementById('fontSize'),
+      cellWidthVal: document.getElementById('cellWidthVal'),
+      cellPadVal: document.getElementById('cellPadVal'),
+      fontSizeVal: document.getElementById('fontSizeVal'),
+      showNested: document.getElementById('showNested'),
+      collapseDepth: document.getElementById('collapseDepth'),
+      guideTitle: document.getElementById('guide-title'),
+      guideDesc: document.getElementById('guide-desc'),
+      stepPoints: document.getElementById('stepPoints'),
+      codeExample: document.getElementById('codeExample'),
+      tips: document.getElementById('tips'),
+      openOriginal: document.getElementById('openOriginal'),
+      btnReset: document.getElementById('btnReset')
+    };
+
+    // 绑定控件
+    el.cellWidth.addEventListener('input', ()=>{ state.opts.width = +el.cellWidth.value; el.cellWidthVal.textContent = state.opts.width+'px'; renderAll(); });
+    el.cellPad.addEventListener('input', ()=>{ state.opts.padding = +el.cellPad.value; el.cellPadVal.textContent = state.opts.padding+'px'; renderAll(); });
+    el.fontSize.addEventListener('input', ()=>{ state.opts.fontSize = +el.fontSize.value; el.fontSizeVal.textContent = state.opts.fontSize+'px'; renderAll(); });
+    el.showNested.addEventListener('change', ()=>{ state.opts.showNested = el.showNested.checked; renderAll(); });
+    el.collapseDepth.addEventListener('change', ()=>{ state.opts.collapseDepth = +el.collapseDepth.value; renderAll(); });
+
+    el.applyJson.addEventListener('click', ()=>{ try{ state.json = JSON.parse(el.jsonInput.value); renderAll(); }catch(e){ alert('JSON 解析失败：'+e.message); } });
+    el.btnNext.addEventListener('click', ()=>{ stepIndex=Math.min(STEPS.length-1,stepIndex+1); updateGuide(); });
+    el.btnPrev.addEventListener('click', ()=>{ stepIndex=Math.max(0,stepIndex-1); updateGuide(); });
+    el.btnReset.addEventListener('click', ()=>{ el.jsonInput.value = `{
+  "name": "Alice",
+  "age": 28,
+  "contact": { "email": "alice@example.com", "phone": null },
+  "tags": ["engineer","frontend"],
+  "active": true
+}`; state.json = null; renderAll(); });
+    document.getElementById('btnShowSource').addEventListener('click', ()=>{ alert(document.documentElement.outerHTML.slice(0,8000)); });
+
+    // 打开原始页面（仅示例：如果原始文件存在于同一目录）
+    el.openOriginal.addEventListener('click', ()=>{ const url = location.pathname.replace('tutorial_json_editor.html','jsonMap_v0.2.html'); window.open(url,'_blank'); });
+
+    // 渲染单元格函数（步骤1核心）
+    function drawCell(text, opts){
+      const el = document.createElement('div');
+      el.className = 'single-cell';
+      el.style.minWidth = opts.width + 'px';
+      el.style.padding = opts.padding + 'px';
+      el.style.fontSize = opts.fontSize + 'px';
+      el.style.borderRadius = Math.max(2, opts.fontSize/6) + 'px';
+      el.style.boxShadow = 'inset 0 -1px 0 rgba(0,0,0,0.02)';
+      el.textContent = text;
+      return el;
+    }
+
+    // 值渲染：根据类型返回 DOM
+    function renderValue(key, value, depth, opts){
+      if(value===null){ const c = drawCell('null',opts); c.style.fontStyle='italic'; c.style.color='#9ca3af'; return wrapKeyValue(key,c,depth); }
+      if(Array.isArray(value)) return renderArray(key,value,depth,opts);
+      if(typeof value === 'object') return renderObject(key,value,depth,opts);
+      // 原始类型
+      const c = drawCell(String(value),opts);
+      return wrapKeyValue(key,c,depth);
+    }
+
+    function wrapKeyValue(key, dom, depth){
+      const wrapper = document.createElement('div');
+      wrapper.style.display = 'flex';
+      wrapper.style.gap = '8px';
+      wrapper.style.alignItems = 'flex-start';
+      const keyEl = document.createElement('div');
+      keyEl.textContent = key;
+      keyEl.style.minWidth = '100px';
+      keyEl.style.color = '#475569';
+      keyEl.style.fontSize = (state.opts.fontSize-1)+'px';
+      keyEl.style.fontFamily = 'Segoe UI, sans-serif';
+      wrapper.appendChild(keyEl);
+      wrapper.appendChild(dom);
+      return wrapper;
+    }
+
+    function renderObject(key, obj, depth, opts){
+      const node = document.createElement('div');
+      node.className='node';
+      node.style.paddingLeft = (depth*8) + 'px';
+      // header
+      const hdr = document.createElement('div');
+      hdr.className='hdr';
+      hdr.style.cursor = 'pointer';
+      hdr.style.userSelect = 'none';
+      hdr.style.display = 'flex';
+      hdr.style.alignItems = 'center';
+      hdr.style.gap = '8px';
+      const title = document.createElement('div');
+      title.textContent = key || '(object)';
+      title.style.fontWeight = '600';
+      title.style.color = '#0f172a';
+      const meta = document.createElement('div');
+      meta.className='meta';
+      const count = Object.keys(obj).length;
+      meta.textContent = `{ object, keys: ${count} }`;
+      meta.style.marginLeft='6px';
+      meta.style.fontSize='12px';
+      hdr.appendChild(title); hdr.appendChild(meta);
+
+      // children
+      const children = document.createElement('div');
+      children.className='children';
+      children.style.marginTop='6px';
+      children.style.display = 'block';
+      for(const k of Object.keys(obj)){
+        const child = renderValue(k, obj[k], depth+1, opts);
+        children.appendChild(child);
+      }
+
+      // collapse if deeper than collapseDepth
+      if(depth >= opts.collapseDepth){ node.classList.add('collapsed'); }
+
+      node.appendChild(hdr); node.appendChild(children);
+
+      // 在 header 上添加折叠交互（事件委托也可）
+      hdr.addEventListener('click', ()=>{ node.classList.toggle('collapsed'); });
+
+      if(opts.showNested) node.style.borderLeft = (Math.max(1,2 - depth*0.2)) + 'px solid rgba(30,144,255,' + Math.max(0.08,0.3 - depth*0.04) + ')';
+      else node.style.borderLeft = '2px dashed transparent';
+
+      return node;
+    }
+
+    function renderArray(key, arr, depth, opts){
+      const node = document.createElement('div');
+      node.className='node';
+      node.style.paddingLeft = (depth*8) + 'px';
+      const hdr = document.createElement('div');
+      hdr.className='hdr';
+      hdr.style.cursor = 'pointer';
+      const title = document.createElement('div'); title.textContent = key||'(array)'; title.style.fontWeight='600';
+      const meta = document.createElement('div'); meta.className='meta'; meta.textContent = `[ array, len: ${arr.length} ]`; meta.style.marginLeft='6px'; meta.style.fontSize='12px';
+      hdr.appendChild(title); hdr.appendChild(meta);
+      const children = document.createElement('div'); children.className='children'; children.style.marginTop='6px';
+      arr.forEach((v,i)=>{ children.appendChild(renderValue('['+i+']', v, depth+1, opts)); });
+      node.appendChild(hdr); node.appendChild(children);
+      if(depth >= opts.collapseDepth) node.classList.add('collapsed');
+      hdr.addEventListener('click', ()=>{ node.classList.toggle('collapsed'); });
+      if(opts.showNested) node.style.borderLeft = (Math.max(1,2 - depth*0.2)) + 'px solid rgba(34,197,94,' + Math.max(0.08,0.3 - depth*0.04) + ')';
+      else node.style.borderLeft = '2px dashed transparent';
+      return node;
+    }
+
+    // 渲染所有（单元示例 + 整棵 JSON）
+    function renderAll(){
+      // 单元示例
+      el.singleCellWrap.innerHTML = '';
+      const cell = drawCell('示例单元', state.opts);
+      el.singleCellWrap.appendChild(cell);
+
+      // JSON 树
+      el.jsonTree.innerHTML = '';
+      let data = state.json;
+      if(!data){ try{ data = JSON.parse(el.jsonInput.value); state.json = data; }catch(e){ el.jsonTree.textContent = '当前 JSON 无效或为空，先输入 JSON 并点击应用渲染。'; return; } }
+      const root = document.createElement('div');
+      root.style.display = 'flex';
+      root.style.flexDirection = 'column';
+      root.appendChild(renderValue('(root)', data, 0, state.opts));
+      el.jsonTree.appendChild(root);
+
+      // 更新当前步骤显示内容
+      updateGuideUI();
+    }
+
+    function updateGuideUI(){
+      const s = STEPS[stepIndex];
+      el.guideTitle.textContent = `步骤 ${stepIndex+1}：${s.title}`;
+      el.guideDesc.textContent = s.desc;
+      el.stepPoints.innerHTML = '<ul>'+ s.points.map(p=>`<li>${p}</li>`).join('') +'</ul>';
+      el.codeExample.textContent = s.code;
+      el.tips.innerHTML = `常见建议：<ul><li>把渲染逻辑拆成小函数，易于测试</li><li>用事件委托处理折叠/展开</li><li>控制最小 DOM 创建以提高性能</li></ul>`;
+      document.getElementById('notes').textContent = `当前步骤：${s.title} — ${s.desc}`;
+    }
+
+    function updateGuide(){ updateGuideUI(); // 也可滚动到对应区域或高亮示例
+    }
+
+    // 初始化
+    (function init(){
+      state.opts.width = +el.cellWidth.value;
+      state.opts.padding = +el.cellPad.value;
+      state.opts.fontSize = +el.fontSize.value;
+      el.cellWidthVal.textContent = state.opts.width+'px';
+      el.cellPadVal.textContent = state.opts.padding+'px';
+      el.fontSizeVal.textContent = state.opts.fontSize+'px';
+      updateGuideUI();
+      // 首次渲染
+      try{ state.json = JSON.parse(el.jsonInput.value); }catch(e){ state.json = null; }
+      renderAll();
+    })();
+
+    // 说明：你可以通过修改左侧 JSON 文本、调整滑块和复选框，实时观察单元样式、渲染结构与折叠行为。
+  </script>
+</body>
+</html>
