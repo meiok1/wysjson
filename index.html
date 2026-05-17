@@ -22,8 +22,7 @@
 <body>
   <h1>WYS JSON Editor</h1>
   <p>Edit JSON, then switch between tree and table views.</p>
-  <label for="json-input">JSON Input</label>
-  <textarea id="json-input">{
+  <label for="json-input">JSON Input</label><textarea id="json-input">{
   "project": "wysjson",
   "features": {
     "editor": true,
@@ -98,8 +97,8 @@
       return item;
     }
 
-    function flatten(value, path = '$', accumulator = null) {
-      const allRows = accumulator ?? [];
+    function flatten(value, path = '$', rows = null) {
+      const allRows = rows ?? [];
       const kind = typeName(value);
       allRows.push({ path, kind, value: stringifyValue(value) });
 
