@@ -22,7 +22,7 @@
 <body>
   <h1>WYS JSON Editor</h1>
   <p>Edit JSON, then switch between tree and table views.</p>
-  <label for="json-input">JSON</label>
+  <label for="json-input">JSON Input</label>
   <textarea id="json-input">{
   "project": "wysjson",
   "features": {
@@ -65,10 +65,11 @@
     }
 
     function stringifyValue(value) {
-      if (typeof value === 'string') return value;
-      if (typeof value === 'number' || typeof value === 'boolean' || value === null) return String(value);
-      if (Array.isArray(value)) return `[Array(${value.length})]`;
-      if (typeof value === 'object') return '[Object]';
+      const valueType = typeName(value);
+      if (valueType === 'string') return value;
+      if (valueType === 'number' || valueType === 'boolean' || valueType === 'null') return String(value);
+      if (valueType === 'array') return `[Array(${value.length})]`;
+      if (valueType === 'object') return '[Object]';
       return String(value);
     }
 
@@ -97,8 +98,8 @@
       return item;
     }
 
-    function flatten(value, path = '$', rows = null) {
-      const allRows = rows ?? [];
+    function flatten(value, path = '$', accumulator = null) {
+      const allRows = accumulator ?? [];
       const kind = typeName(value);
       allRows.push({ path, kind, value: stringifyValue(value) });
 
