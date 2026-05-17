@@ -23,7 +23,7 @@
   <h1>WYS JSON Editor</h1>
   <p>Edit JSON, then switch between tree and table views.</p>
   <label for="json-input">JSON</label>
-  <textarea id="json-input" aria-label="JSON input">{
+  <textarea id="json-input">{
   "project": "wysjson",
   "features": {
     "editor": true,
@@ -67,7 +67,9 @@
     function stringifyValue(value) {
       if (typeof value === 'string') return value;
       if (typeof value === 'number' || typeof value === 'boolean' || value === null) return String(value);
-      return JSON.stringify(value);
+      if (Array.isArray(value)) return `[Array(${value.length})]`;
+      if (typeof value === 'object') return '[Object]';
+      return String(value);
     }
 
     function buildTree(name, value) {
@@ -95,17 +97,18 @@
       return item;
     }
 
-    function flatten(value, path = '$', rows = []) {
+    function flatten(value, path = '$', rows = null) {
+      const allRows = rows ?? [];
       const kind = typeName(value);
-      rows.push({ path, kind, value: stringifyValue(value) });
+      allRows.push({ path, kind, value: stringifyValue(value) });
 
       if (kind === 'object') {
-        Object.entries(value).forEach(([key, child]) => flatten(child, `${path}.${key}`, rows));
+        Object.entries(value).forEach(([key, child]) => flatten(child, `${path}.${key}`, allRows));
       } else if (kind === 'array') {
-        value.forEach((child, index) => flatten(child, `${path}[${index}]`, rows));
+        value.forEach((child, index) => flatten(child, `${path}[${index}]`, allRows));
       }
 
-      return rows;
+      return allRows;
     }
 
     function parseInput() {
