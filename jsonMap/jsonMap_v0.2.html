@@ -1910,6 +1910,19 @@
                     jsonInput.addEventListener('click', () => this.updateJsonEditorCurrentLine());
                     jsonInput.addEventListener('mouseup', () => this.updateJsonEditorCurrentLine());
                     jsonInput.addEventListener('focus', () => this.updateJsonEditorCurrentLine());
+                    // Ensure native textarea shortcuts and deletion work inside the JSON editor
+                    jsonInput.addEventListener('keydown', (e) => {
+                        // Allow Ctrl/Cmd+A to select all in the textarea
+                        if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+                            e.stopPropagation();
+                            return;
+                        }
+                        // Allow Delete/Backspace and arrow navigation to behave normally
+                        if (e.key === 'Delete' || e.key === 'Backspace' || (typeof e.key === 'string' && e.key.startsWith('Arrow'))) {
+                            e.stopPropagation();
+                            return;
+                        }
+                    });
                 }
                 const jsonSyntaxPreview = document.getElementById('jsonSyntaxPreview');
                 if (jsonSyntaxPreview) {
@@ -2338,14 +2351,22 @@
                 const lineNumber = Number(line.dataset.line);
                 if (!Number.isFinite(lineNumber)) return;
                 const path = line.dataset.path || '';
+                const isCtrlClick = !!(event && (event.ctrlKey || event.metaKey));
                 if (path) {
-                    const cell = this.selectCellByPath(path);
-                    if (cell) {
-                        this.centerCellInView(cell);
-                        this.setStatus(`已定位到单元格 ${path}`);
-                        return;
+                    if (isCtrlClick) {
+                        const cell = this.selectCellByPath(path);
+                        if (cell) {
+                            this.centerCellInView(cell);
+                            this.setStatus(`已定位到单元格 ${path}`);
+                            return;
+                        }
                     }
+                    // Non-Ctrl click: focus JSON editor at the clicked line so user can edit
+                    this.locateJsonEditorLine(lineNumber);
+                    this.setStatus(`已定位到第 ${lineNumber} 行`);
+                    return;
                 }
+                // No path available: just focus JSON editor line
                 this.locateJsonEditorLine(lineNumber);
                 this.setStatus(`已定位到第 ${lineNumber} 行`);
             },

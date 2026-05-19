@@ -678,15 +678,6 @@
             position: relative;
         }
 
-        .json-editor-stage:focus-within {
-            box-shadow: inset 0 0 0 2px rgba(26, 115, 232, 0.45);
-            border-radius: 6px;
-        }
-
-        .json-editor-stage:focus-within .json-editor-textarea {
-            z-index: 4;
-        }
-
         .json-editor-preview {
             position: absolute;
             inset: 0;
@@ -715,11 +706,11 @@
             border-radius: 2px;
             position: relative;
             padding-left: 16px;
-            cursor: text;
+            cursor: pointer;
         }
 
         .json-editor-line.current {
-            background: rgba(26, 115, 232, 0.12);
+            background: rgba(26, 115, 232, 0.08);
         }
 
         .json-editor-line.folded-start {
@@ -2515,7 +2506,6 @@
                     jsonInput.addEventListener('click', () => this.updateJsonEditorCurrentLine());
                     jsonInput.addEventListener('mouseup', () => this.updateJsonEditorCurrentLine());
                     jsonInput.addEventListener('focus', () => this.updateJsonEditorCurrentLine());
-                    jsonInput.addEventListener('click', (e) => this.handleJsonTextareaClick(e));
                     // Ensure native textarea shortcuts and deletion work inside the JSON editor
                     jsonInput.addEventListener('keydown', (e) => {
                         // Allow Ctrl/Cmd+A to select all in the textarea
@@ -2894,53 +2884,18 @@
                 return offset;
             },
 
-            locateJsonEditorLine(lineNumber, columnOffset = 0) {
+            locateJsonEditorLine(lineNumber) {
                 const textarea = document.getElementById('jsonInput');
                 if (!textarea) return;
                 const lines = textarea.value.split('\n');
                 const targetLine = Math.max(1, Math.min(Number(lineNumber) || 1, lines.length || 1));
                 const startOffset = this.getJsonLineStartOffset(textarea.value, targetLine);
-                const lineText = lines[targetLine - 1] || '';
-                const caretOffset = Math.max(0, Math.min(lineText.length, Number(columnOffset) || 0));
                 textarea.focus();
-                textarea.setSelectionRange(startOffset + caretOffset, startOffset + caretOffset);
+                textarea.setSelectionRange(startOffset, startOffset);
                 const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight) || 19.2;
                 textarea.scrollTop = Math.max(0, (targetLine - 1) * lineHeight - textarea.clientHeight / 3);
                 this.updateJsonEditorCurrentLine();
                 this.syncJsonEditorScroll();
-            },
-
-            getJsonPreviewClickColumn(lineElement, event, lineNumber) {
-                if (!lineElement || !event) return 0;
-                const textarea = document.getElementById('jsonInput');
-                if (!textarea) return 0;
-                const lines = textarea.value.split('\n');
-                const lineText = lines[Math.max(0, (Number(lineNumber) || 1) - 1)] || '';
-                if (!lineText) return 0;
-                const lineRect = lineElement.getBoundingClientRect();
-                const style = getComputedStyle(lineElement);
-                const paddingLeft = parseFloat(style.paddingLeft) || 0;
-                const paddingRight = parseFloat(style.paddingRight) || 0;
-                const usableWidth = Math.max(0, lineRect.width - paddingLeft - paddingRight);
-                const relativeX = Math.max(0, Math.min(usableWidth, event.clientX - lineRect.left - paddingLeft));
-                const canvas = this._previewMeasureCanvas || (this._previewMeasureCanvas = document.createElement('canvas'));
-                const context = canvas.getContext('2d');
-                if (!context) return 0;
-                context.font = `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`.trim().replace(/\s+/g, ' ');
-                let bestIndex = 0;
-                let bestDistance = Infinity;
-                let accumulated = 0;
-                for (let index = 0; index <= lineText.length; index += 1) {
-                    const distance = Math.abs(accumulated - relativeX);
-                    if (distance <= bestDistance) {
-                        bestDistance = distance;
-                        bestIndex = index;
-                    }
-                    if (index < lineText.length) {
-                        accumulated += context.measureText(lineText[index]).width;
-                    }
-                }
-                return bestIndex;
             },
 
             locateJsonPreviewPath(path) {
@@ -3051,32 +3006,14 @@
                             return;
                         }
                     }
-                    // Non-Ctrl click: focus JSON editor at the clicked position so user can edit there
-                    const columnOffset = this.getJsonPreviewClickColumn(line, event, lineNumber);
-                    this.locateJsonEditorLine(lineNumber, columnOffset);
+                    // Non-Ctrl click: focus JSON editor at the clicked line so user can edit
+                    this.locateJsonEditorLine(lineNumber);
                     this.setStatus(`已定位到第 ${lineNumber} 行`);
                     return;
                 }
                 // No path available: just focus JSON editor line
-                const columnOffset = this.getJsonPreviewClickColumn(line, event, lineNumber);
-                this.locateJsonEditorLine(lineNumber, columnOffset);
+                this.locateJsonEditorLine(lineNumber);
                 this.setStatus(`已定位到第 ${lineNumber} 行`);
-            },
-
-            handleJsonTextareaClick(event) {
-                this.updateJsonEditorCurrentLine();
-                if (!(event.ctrlKey || event.metaKey)) return;
-                const textarea = event.currentTarget;
-                if (!textarea) return;
-                const lineNumber = this.getJsonEditorCurrentLine(textarea);
-                const pathMap = this.buildJsonPreviewPathMap(textarea.value || '');
-                if (!pathMap) return;
-                const path = pathMap.get(lineNumber) || '';
-                if (!path) return;
-                const cell = this.selectCellByPath(path);
-                if (!cell) return;
-                this.centerCellInView(cell);
-                this.setStatus(`已定位到单元格 ${path}`);
             },
 
             highlightJsonLine(line) {
