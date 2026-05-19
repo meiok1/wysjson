@@ -5255,7 +5255,9 @@
                     e.preventDefault();
                     e.stopPropagation();
                     this.selectCell(cell);
-                    this.setFocusPath('', { selectPath: cell.dataset.path || '' });
+                    if (this.inputPanelMode !== 'hidden' && !this.focusJsonPath(cell.dataset.path || '')) {
+                        this.setStatus('JSON 编辑器中未找到对应节点', true);
+                    }
                     return;
                 }
 
