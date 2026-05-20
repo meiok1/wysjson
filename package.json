@@ -86,6 +86,7 @@
   "dependencies": {
     "@babel/generator": "^7.23.0",
     "@babel/parser": "^7.23.0",
-    "@babel/types": "^7.23.0"
+    "@babel/types": "^7.23.0",
+    "monaco-editor": "^0.52.0"
   }
 }
