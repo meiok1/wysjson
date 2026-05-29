@@ -2513,9 +2513,12 @@
             updateThumbnail() {
                 const panel = document.getElementById('thumbnailPanel');
                 if (!panel) return;
+                console.log('updateThumbnail start:', 'thumbnailEnabled=', this.thumbnailEnabled, 'dataExists=', !!this.data, 'focusPath=', this.focusPath);
                 panel.classList.toggle('hidden', !this.thumbnailEnabled || this.data === null || this.data === undefined);
                 if (!this.thumbnailEnabled || this.data === null || this.data === undefined) {
                     panel.innerHTML = '';
+                    window.__lastThumbnailDebug = { stage: 'hidden', thumbnailEnabled: !!this.thumbnailEnabled, dataNull: this.data === null };
+                    console.log('updateThumbnail: hidden or no data (thumbnailEnabled=', this.thumbnailEnabled, 'dataNull=', this.data === null, ')');
                     return;
                 }
                 // 优化：当 JSON 非常大时，避免执行大量 DOM 查询/计算以生成缩略图
@@ -2523,8 +2526,14 @@
                 try {
                     const rawText = typeof this.getJsonInputValue === 'function' ? this.getJsonInputValue() : (this.data ? JSON.stringify(this.data) : '');
                     const LARGE_JSON_THRESHOLD = 200000; // 字符数阈值（约 200KB）
-                    if (rawText && rawText.length > LARGE_JSON_THRESHOLD) {
+                    const canvas = document.getElementById('editorCanvas');
+                    const cheapElementsCount = canvas ? (canvas.querySelectorAll('.json-table-wrapper, .nested-content, .nested-preview')?.length || 0) : 0;
+                    console.log('updateThumbnail: rawText length=', rawText ? rawText.length : 0, 'threshold=', LARGE_JSON_THRESHOLD, 'cheapElementsCount=', cheapElementsCount);
+                    // 双重条件：仅当文本非常大并且页面中元素数量也很多时，才触发轻量回退。
+                    if (rawText && rawText.length > LARGE_JSON_THRESHOLD && cheapElementsCount > 250) {
                         // 渲染轻量占位缩略图，避免遍历/计算所有表格节点导致卡顿或失败
+                        console.log('updateThumbnail: large JSON fallback applied (len=', rawText.length, 'elements=', cheapElementsCount, ')');
+                        window.__lastThumbnailDebug = { stage: 'fallback', rawLen: rawText.length, cheapElementsCount };
                         const placeholder = `<div class="thumbnail-canvas"><div class="thumbnail-block table active" style="left:0px;top:0px;width:100%;height:100%"></div></div>`;
                         panel.innerHTML = `<div class="mini-map-resize-handle" title="${this.getTranslation('thumbnailHint')}"></div><div class="mini-map-header"><div class="mini-map-title">${this.getTranslation('thumbnail')}</div><div class="mini-map-hint" title="${this.getTranslation('thumbnailHint')}">${this.getTranslation('thumbnailHint')}</div></div><div class="mini-map-overview"><div class="mini-map-overview-grid"></div>${placeholder}<div class="mini-map-viewport" id="thumbnailViewport"></div><div class="mini-map-overview-label" id="thumbnailOverviewLabel">${this.getTranslation('thumbnailOverviewLabel')}</div></div>`;
                         this.updateThumbnailViewport();
@@ -2533,9 +2542,18 @@
                     }
                 } catch (err) {
                     console.warn('thumbnail fallback check failed', err);
+                    window.__lastThumbnailDebug = { stage: 'fallback-check-error', error: String(err) };
                 }
-
                 const blocks = this.collectThumbnailBlocks();
+                try {
+                    const blocksHtml = blocks || '';
+                    const blocksCount = (blocksHtml.match(/class="thumbnail-block/g) || []).length;
+                    window.__lastThumbnailDebug = { stage: 'collected', blocksHtmlLength: blocksHtml.length, blocksCount };
+                    console.log('updateThumbnail: collected blocks length=', blocksHtml.length, 'blocksCount=', blocksCount);
+                } catch (e) {
+                    window.__lastThumbnailDebug = { stage: 'collected-error', error: String(e) };
+                    console.log('updateThumbnail: failed to count blocks', e);
+                }
                 panel.innerHTML = `<div class="mini-map-resize-handle" title="${this.getTranslation('thumbnailHint')}"></div><div class="mini-map-header"><div class="mini-map-title">${this.getTranslation('thumbnail')}</div><div class="mini-map-hint" title="${this.getTranslation('thumbnailHint')}">${this.getTranslation('thumbnailHint')}</div></div><div class="mini-map-overview"><div class="mini-map-overview-grid"></div><div class="thumbnail-canvas">${blocks}</div><div class="mini-map-viewport" id="thumbnailViewport"></div><div class="mini-map-overview-label" id="thumbnailOverviewLabel">${this.getTranslation('thumbnailOverviewLabel')}</div></div>`;
                 this.updateThumbnailViewport();
                 this.updateThumbnailPosition();

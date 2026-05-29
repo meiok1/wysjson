@@ -307,6 +307,51 @@
             tab-size: 2;
         }
 
+        .json-editor-shell {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            background: #ffffff;
+        }
+
+        .json-editor-monaco,
+        .json-editor-fallback {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .json-editor-monaco {
+            display: none;
+        }
+
+        .json-editor-shell.is-ready .json-editor-monaco {
+            display: block;
+        }
+
+        .json-editor-shell.is-ready .json-editor-fallback {
+            display: none;
+        }
+
+        .json-editor-shell.is-fallback .json-editor-monaco {
+            display: none;
+        }
+
+        .json-editor-fallback {
+            display: block;
+            background: #ffffff;
+            color: #333;
+            border: none;
+            padding: 12px;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            tab-size: 2;
+        }
+
         /* ===== Table View (Excel Grid Area) ===== */
         .table-view {
             flex: 1;
@@ -1217,8 +1262,11 @@
                 </div>
             </div>
             <div class="input-panel-resize-handle" id="inputPanelResizeHandle" title="拖动调整宽度"></div>
-            <textarea id="jsonInput"
-                placeholder='粘贴或编辑 JSON 数据...&#10;&#10;例如:&#10;{"name": "张三", "age": 30, "address": {"city": "北京", "street": "长安街"}}'></textarea>
+            <div class="json-editor-shell" id="jsonEditorShell">
+                <div class="json-editor-monaco" id="jsonMonacoEditor"></div>
+                <textarea id="jsonInput" class="json-editor-fallback"
+                    placeholder='粘贴或编辑 JSON 数据...&#10;&#10;例如:&#10;{"name": "张三", "age": 30, "address": {"city": "北京", "street": "长安街"}}'></textarea>
+            </div>
         </div>
 
         <!-- Table View -->
@@ -1242,6 +1290,7 @@
     <!-- Context Menu -->
     <div class="context-menu" id="contextMenu"></div>
 
+    <script src="./node_modules/monaco-editor/min/vs/loader.js"></script>
     <script>
         // ============================================================
         // wysJSON - Nested JSON Table Editor
@@ -1291,6 +1340,10 @@
             inputPanelResizeDrag: null,
             editorScale: 1,
             nullAsString: true,
+            jsonEditor: null,
+            monacoLoading: false,
+            monacoReady: false,
+            monacoLoadFailed: false,
 
             // Localization (standalone page)
             currentLanguage: 'en',
@@ -1561,8 +1614,368 @@
                 const quickJumpChk = document.getElementById('chkQuickJump');
                 if (quickJumpChk) quickJumpChk.checked = this.miniMapEnabled;
                 this.applyInputPanelLayout();
+                this.initMonacoEditor();
                 this.applyEditorScale();
                 this.setStatus(this.getTranslation('ready'));
+            },
+
+            getJsonInputElement() {
+                return document.getElementById('jsonInput');
+            },
+
+            getJsonEditorShell() {
+                return document.getElementById('jsonEditorShell');
+            },
+
+            getJsonEditorHost() {
+                return document.getElementById('jsonMonacoEditor');
+            },
+
+            isJsonEditorTarget(target) {
+                return !!target?.closest?.('#jsonEditorShell, .monaco-editor');
+            },
+
+            getJsonInputValue() {
+                if (this.jsonEditor) return this.jsonEditor.getValue();
+                return this.getJsonInputElement()?.value || '';
+            },
+
+            setJsonInputValue(value, options = {}) {
+                const nextValue = String(value ?? '');
+                const fallback = this.getJsonInputElement();
+                const shell = this.getJsonEditorShell();
+                if (this.jsonEditor) {
+                    if (this.jsonEditor.getValue() !== nextValue) {
+                        this.jsonEditor.setValue(nextValue);
+                    }
+                    if (options.focus !== false) this.jsonEditor.focus();
+                } else if (fallback) {
+                    fallback.value = nextValue;
+                    if (options.focus !== false) fallback.focus();
+                }
+                if (shell) {
+                    shell.classList.toggle('is-ready', !!this.jsonEditor);
+                    shell.classList.toggle('is-fallback', !this.jsonEditor);
+                }
+            },
+
+            focusJsonInput() {
+                if (this.jsonEditor) {
+                    this.jsonEditor.focus();
+                    return;
+                }
+                this.getJsonInputElement()?.focus();
+            },
+
+            layoutJsonEditor() {
+                if (!this.jsonEditor) return;
+                this.jsonEditor.layout();
+            },
+
+            buildJsonPathIndex(text) {
+                const ranges = [];
+                const length = text.length;
+                let index = 0;
+
+                const isWhitespace = (ch) => /\s/.test(ch);
+                const skipWhitespace = () => {
+                    while (index < length && isWhitespace(text[index])) index++;
+                };
+
+                const recordRange = (path, start, end, kind = 'value') => {
+                    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return;
+                    ranges.push({ path: path || '', start, end, kind, length: end - start });
+                };
+
+                const parseStringToken = () => {
+                    const start = index;
+                    if (text[index] !== '"') return null;
+                    index++;
+                    let escaped = false;
+                    while (index < length) {
+                        const ch = text[index++];
+                        if (escaped) {
+                            escaped = false;
+                            continue;
+                        }
+                        if (ch === '\\') {
+                            escaped = true;
+                            continue;
+                        }
+                        if (ch === '"') break;
+                    }
+                    const end = index;
+                    let value = '';
+                    try {
+                        value = JSON.parse(text.slice(start, end));
+                    } catch (error) {
+                        value = text.slice(start + 1, Math.max(start + 1, end - 1));
+                    }
+                    return { value, start, end };
+                };
+
+                const parseNumberToken = () => {
+                    const start = index;
+                    const numberPattern = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
+                    numberPattern.lastIndex = index;
+                    const match = numberPattern.exec(text);
+                    if (!match) return null;
+                    index = numberPattern.lastIndex;
+                    return { value: Number(match[0]), start, end: index };
+                };
+
+                const parseLiteralToken = () => {
+                    const start = index;
+                    if (text.startsWith('true', index)) {
+                        index += 4;
+                        return { value: true, start, end: index };
+                    }
+                    if (text.startsWith('false', index)) {
+                        index += 5;
+                        return { value: false, start, end: index };
+                    }
+                    if (text.startsWith('null', index)) {
+                        index += 4;
+                        return { value: null, start, end: index };
+                    }
+                    return null;
+                };
+
+                const parseValue = (path) => {
+                    skipWhitespace();
+                    const start = index;
+                    const ch = text[index];
+                    if (ch === '{') return parseObject(path, start);
+                    if (ch === '[') return parseArray(path, start);
+                    if (ch === '"') {
+                        const token = parseStringToken();
+                        if (token) recordRange(path, token.start, token.end, 'value');
+                        return token;
+                    }
+                    const numberToken = parseNumberToken();
+                    if (numberToken) {
+                        recordRange(path, numberToken.start, numberToken.end, 'value');
+                        return numberToken;
+                    }
+                    const literalToken = parseLiteralToken();
+                    if (literalToken) {
+                        recordRange(path, literalToken.start, literalToken.end, 'value');
+                        return literalToken;
+                    }
+                    return null;
+                };
+
+                const parseObject = (path, start) => {
+                    index++; // skip '{'
+                    skipWhitespace();
+                    if (text[index] === '}') {
+                        index++;
+                        recordRange(path, start, index, 'value');
+                        return { start, end: index };
+                    }
+
+                    while (index < length) {
+                        skipWhitespace();
+                        const keyToken = parseStringToken();
+                        if (!keyToken) break;
+                        const key = keyToken.value;
+                        const childPath = path ? `${path}.${key}` : key;
+                        recordRange(childPath, keyToken.start, keyToken.end, 'key');
+                        skipWhitespace();
+                        if (text[index] !== ':') break;
+                        index++;
+                        const valueStart = index;
+                        parseValue(childPath);
+                        recordRange(childPath, valueStart, index, 'value');
+                        skipWhitespace();
+                        if (text[index] === ',') {
+                            index++;
+                            continue;
+                        }
+                        if (text[index] === '}') {
+                            index++;
+                            break;
+                        }
+                        break;
+                    }
+
+                    recordRange(path, start, index, 'value');
+                    return { start, end: index };
+                };
+
+                const parseArray = (path, start) => {
+                    index++; // skip '['
+                    skipWhitespace();
+                    if (text[index] === ']') {
+                        index++;
+                        recordRange(path, start, index, 'value');
+                        return { start, end: index };
+                    }
+
+                    let itemIndex = 0;
+                    while (index < length) {
+                        const childPath = path ? `${path}[${itemIndex}]` : `[${itemIndex}]`;
+                        const valueStart = index;
+                        parseValue(childPath);
+                        recordRange(childPath, valueStart, index, 'value');
+                        itemIndex++;
+                        skipWhitespace();
+                        if (text[index] === ',') {
+                            index++;
+                            continue;
+                        }
+                        if (text[index] === ']') {
+                            index++;
+                            break;
+                        }
+                        break;
+                    }
+
+                    recordRange(path, start, index, 'value');
+                    return { start, end: index };
+                };
+
+                skipWhitespace();
+                parseValue('');
+                skipWhitespace();
+                recordRange('', 0, Math.max(index, 0), 'value');
+                return ranges;
+            },
+
+            findJsonRangeForPath(text, path) {
+                const ranges = this.buildJsonPathIndex(text);
+                const candidates = ranges.filter((range) => range.path === (path || '') && range.kind === 'value');
+                if (candidates.length === 0) return null;
+                candidates.sort((left, right) => (left.length - right.length) || (left.start - right.start));
+                return candidates[0];
+            },
+
+            findJsonPathAtOffset(text, offset) {
+                const ranges = this.buildJsonPathIndex(text);
+                const candidates = ranges.filter((range) => range.start <= offset && offset <= Math.max(range.end - 1, range.start));
+                if (candidates.length === 0) return null;
+                candidates.sort((left, right) => {
+                    if (left.length !== right.length) return left.length - right.length;
+                    if (left.kind !== right.kind) return left.kind === 'value' ? -1 : 1;
+                    return right.start - left.start;
+                });
+                return candidates[0]?.path ?? null;
+            },
+
+            focusJsonPath(path) {
+                if (!this.jsonEditor || typeof monaco === 'undefined') return false;
+                const model = this.jsonEditor.getModel();
+                if (!model) return false;
+                const range = this.findJsonRangeForPath(this.jsonEditor.getValue(), path);
+                if (!range) return false;
+                const startPosition = model.getPositionAt(range.start);
+                const endPosition = model.getPositionAt(Math.max(range.end, range.start + 1));
+                const selection = new monaco.Range(startPosition.lineNumber, startPosition.column, endPosition.lineNumber, endPosition.column);
+                this.jsonEditor.setSelection(selection);
+                this.jsonEditor.revealRangeInCenter(selection);
+                this.jsonEditor.focus();
+                return true;
+            },
+
+            selectRootCellByPath(path) {
+                if (!path) return null;
+                const currentFocus = this.focusPath;
+                if (currentFocus && currentFocus !== '') {
+                    this.setFocusPath('', { selectPath: path });
+                }
+                const cell = this.selectCellByPath(path);
+                if (!cell) {
+                    this.pendingCellSelection = path;
+                    if (currentFocus !== '') this.setFocusPath('', { selectPath: path });
+                }
+                return cell;
+            },
+
+            initMonacoEditor() {
+                const shell = this.getJsonEditorShell();
+                const host = this.getJsonEditorHost();
+                const fallback = this.getJsonInputElement();
+                if (!shell || !host || !fallback) return;
+                if (this.monacoLoading || this.jsonEditor) return;
+
+                if (typeof window.require !== 'function') {
+                    this.monacoLoadFailed = true;
+                    shell.classList.add('is-fallback');
+                    return;
+                }
+
+                this.monacoLoading = true;
+                const monacoBase = new URL('./node_modules/monaco-editor/min', document.baseURI).href;
+                window.MonacoEnvironment = window.MonacoEnvironment || {};
+                window.MonacoEnvironment.getWorkerUrl = () => {
+                    const workerCode = `self.MonacoEnvironment = { baseUrl: '${monacoBase}/' }; importScripts('${monacoBase}/vs/base/worker/workerMain.js');`;
+                    return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(workerCode);
+                };
+
+                window.require.config({ paths: { vs: `${monacoBase}/vs` } });
+                window.require(['vs/editor/editor.main'], () => {
+                    try {
+                        if (!shell.isConnected || !host.isConnected) return;
+                        const initialValue = fallback.value || '';
+                        this.jsonEditor = monaco.editor.create(host, {
+                            value: initialValue,
+                            language: 'json',
+                            theme: 'vs',
+                            automaticLayout: false,
+                            minimap: { enabled: false },
+                            scrollBeyondLastLine: false,
+                            wordWrap: 'on',
+                            wrappingIndent: 'indent',
+                            renderLineHighlight: 'all',
+                            fontSize: 12,
+                            lineNumbers: 'on',
+                            glyphMargin: false,
+                            folding: true,
+                            fixedOverflowWidgets: true,
+                            tabSize: 2,
+                            formatOnPaste: true,
+                            formatOnType: true,
+                        });
+                        if (monaco?.languages?.json?.jsonDefaults) {
+                            monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
+                                validate: true,
+                                allowComments: true,
+                                trailingCommas: true,
+                                schemaValidation: 'warning',
+                            });
+                        }
+                        this.jsonEditor.onDidChangeModelContent(() => {
+                            fallback.value = this.jsonEditor.getValue();
+                        });
+                        this.jsonEditor.onMouseDown((event) => {
+                            const browserEvent = event.event?.browserEvent;
+                            if (!browserEvent || !(browserEvent.ctrlKey || browserEvent.metaKey)) return;
+                            const position = event.target?.position;
+                            const model = this.jsonEditor?.getModel();
+                            if (!position || !model) return;
+                            browserEvent.preventDefault();
+                            browserEvent.stopPropagation();
+                            const offset = model.getOffsetAt(position);
+                            const path = this.findJsonPathAtOffset(this.jsonEditor.getValue(), offset);
+                            if (path === null) return;
+                            this.selectRootCellByPath(path);
+                            this.setFocusPath('', { selectPath: path });
+                        });
+                        this.jsonEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => this.applyInput());
+                        this.monacoReady = true;
+                        shell.classList.add('is-ready');
+                        shell.classList.remove('is-fallback');
+                        requestAnimationFrame(() => this.layoutJsonEditor());
+                    } catch (error) {
+                        console.warn('Monaco init failed', error);
+                        this.monacoLoadFailed = true;
+                        this.jsonEditor = null;
+                        shell.classList.add('is-fallback');
+                        shell.classList.remove('is-ready');
+                    } finally {
+                        this.monacoLoading = false;
+                    }
+                });
             },
 
             loadUIState() {
@@ -1678,9 +2091,16 @@
                     this.updateThumbnailViewport();
                     this.updateThumbnailPosition();
                     this.updateMiniMapPosition();
+                    this.layoutJsonEditor();
                 });
-                document.addEventListener('copy', (e) => this.handleCopy(e));
-                document.addEventListener('cut', (e) => this.handleCut(e));
+                document.addEventListener('copy', (e) => {
+                    if (this.isJsonEditorTarget(e.target)) return;
+                    this.handleCopy(e);
+                });
+                document.addEventListener('cut', (e) => {
+                    if (this.isJsonEditorTarget(e.target)) return;
+                    this.handleCut(e);
+                });
                 window.addEventListener('pagehide', () => this.saveUIState());
                 window.addEventListener('beforeunload', () => this.saveUIState());
                 document.addEventListener('mousemove', (e) => {
@@ -1705,9 +2125,11 @@
                 document.addEventListener('mouseup', () => this.handleThumbnailMouseUp());
                 document.addEventListener('mousemove', (e) => this.handleMiniMapMouseMove(e));
                 document.addEventListener('mouseup', () => this.handleMiniMapMouseUp());
+                window.addEventListener('resize', () => this.layoutJsonEditor());
 
                 // Global undo/redo hotkeys
                 document.addEventListener('keydown', (e) => {
+                    if (this.isJsonEditorTarget(e.target)) return;
                     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
                     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); this.redo(); }
                 });
@@ -1780,7 +2202,11 @@
                 this.setStatus('已重做');
             },
 
-            syncTextarea() { if (this.data) document.getElementById('jsonInput').value = JSON.stringify(this.data, null, 2); },
+            syncTextarea() {
+                if (this.data !== undefined) {
+                    this.setJsonInputValue(JSON.stringify(this.data, null, 2), { focus: false });
+                }
+            },
 
             applyEditorScale() {
                 const canvas = document.getElementById('editorCanvas');
@@ -1789,9 +2215,11 @@
                 this.updateThumbnailViewport();
                 this.updateThumbnailPosition();
                 this.updateMiniMapPosition();
+                this.layoutJsonEditor();
             },
 
             applyInputPanelLayout() {
+                const shell = this.getJsonEditorShell();
                 const inputPanel = document.getElementById('inputPanel');
                 const mainContent = document.querySelector('.main-content');
                 if (!inputPanel || !mainContent) return;
@@ -1810,13 +2238,18 @@
                     btnMaximizeInput.textContent = this.inputPanelMode === 'maximized' ? this.getTranslation('restoreInput') : this.getTranslation('maximizeInput');
                     btnMaximizeInput.classList.toggle('is-maximized', this.inputPanelMode === 'maximized');
                 }
+                if (shell) {
+                    shell.classList.toggle('is-ready', !!this.jsonEditor);
+                    shell.classList.toggle('is-fallback', !this.jsonEditor);
+                }
+                this.layoutJsonEditor();
             },
 
             openInputPanel(mode = 'normal', focus = true) {
                 this.inputPanelMode = mode;
                 this.applyInputPanelLayout();
                 this.saveUIState();
-                if (focus && mode !== 'hidden') document.getElementById('jsonInput')?.focus();
+                if (focus && mode !== 'hidden') this.focusJsonInput();
             },
 
             hideInputPanel() {
@@ -1829,7 +2262,7 @@
                 this.inputPanelMode = this.inputPanelMode === 'maximized' ? 'normal' : 'maximized';
                 this.applyInputPanelLayout();
                 this.saveUIState();
-                if (this.inputPanelMode !== 'hidden') document.getElementById('jsonInput')?.focus();
+                if (this.inputPanelMode !== 'hidden') this.focusJsonInput();
             },
 
             startInputPanelResize(e) {
@@ -1857,7 +2290,7 @@
             },
 
             applyInput() {
-                const raw = document.getElementById('jsonInput').value.trim();
+                const raw = this.getJsonInputValue().trim();
                 if (!raw) return;
                 try {
                     this.data = JSON.parse(raw);
@@ -1874,7 +2307,7 @@
             sendToInputPanel() {
                 if (this.data === null) return this.setStatus('没有数据', true);
                 const json = JSON.stringify(this.data, null, 2);
-                document.getElementById('jsonInput').value = json;
+                this.setJsonInputValue(json, { focus: false });
                 if (this.inputPanelMode === 'hidden') this.openInputPanel('normal', false);
                 else this.applyInputPanelLayout();
                 this.setStatus('JSON 已发送到输入面板');
@@ -1884,7 +2317,7 @@
             formatJSON() {
                 if (this.data === null) return this.setStatus('没有数据', true);
                 const formatted = JSON.stringify(this.data, null, 2);
-                document.getElementById('jsonInput').value = formatted;
+                this.setJsonInputValue(formatted, { focus: false });
                 if (this.inputPanelMode === 'hidden') this.openInputPanel('normal', false);
                 else this.applyInputPanelLayout();
                 this.setStatus('JSON 已格式化');
@@ -1893,7 +2326,7 @@
             minifyJSON() {
                 if (this.data === null) return this.setStatus('没有数据', true);
                 const minified = JSON.stringify(this.data);
-                document.getElementById('jsonInput').value = minified;
+                this.setJsonInputValue(minified, { focus: false });
                 if (this.inputPanelMode === 'hidden') this.openInputPanel('normal', false);
                 else this.applyInputPanelLayout();
                 this.setStatus('JSON 已压缩');
@@ -1966,7 +2399,7 @@
                 };
                 this.data = sample;
                 this.focusPath = '';
-                document.getElementById('jsonInput').value = JSON.stringify(sample, null, 2);
+                this.setJsonInputValue(JSON.stringify(sample, null, 2), { focus: false });
                 this.nestedStates = {};
                 this.columnStates = {};
                 this.render();
@@ -2080,9 +2513,12 @@
             updateThumbnail() {
                 const panel = document.getElementById('thumbnailPanel');
                 if (!panel) return;
+                console.log('updateThumbnail start:', 'thumbnailEnabled=', this.thumbnailEnabled, 'dataExists=', !!this.data, 'focusPath=', this.focusPath);
                 panel.classList.toggle('hidden', !this.thumbnailEnabled || this.data === null || this.data === undefined);
                 if (!this.thumbnailEnabled || this.data === null || this.data === undefined) {
                     panel.innerHTML = '';
+                    window.__lastThumbnailDebug = { stage: 'hidden', thumbnailEnabled: !!this.thumbnailEnabled, dataNull: this.data === null };
+                    console.log('updateThumbnail: hidden or no data (thumbnailEnabled=', this.thumbnailEnabled, 'dataNull=', this.data === null, ')');
                     return;
                 }
                 // 优化：当 JSON 非常大时，避免执行大量 DOM 查询/计算以生成缩略图
@@ -2090,7 +2526,14 @@
                 try {
                     const rawText = typeof this.getJsonInputValue === 'function' ? this.getJsonInputValue() : (this.data ? JSON.stringify(this.data) : '');
                     const LARGE_JSON_THRESHOLD = 200000; // 字符数阈值（约 200KB）
-                    if (rawText && rawText.length > LARGE_JSON_THRESHOLD) {
+                    const canvas = document.getElementById('editorCanvas');
+                    const cheapElementsCount = canvas ? (canvas.querySelectorAll('.json-table-wrapper, .nested-content, .nested-preview')?.length || 0) : 0;
+                    console.log('updateThumbnail: rawText length=', rawText ? rawText.length : 0, 'threshold=', LARGE_JSON_THRESHOLD, 'cheapElementsCount=', cheapElementsCount);
+                    // 双重条件：仅当文本非常大并且页面中元素数量也很多时，才触发轻量回退。
+                    if (rawText && rawText.length > LARGE_JSON_THRESHOLD && cheapElementsCount > 250) {
+                        // 渲染轻量占位缩略图，避免遍历/计算所有表格节点导致卡顿或失败
+                        console.log('updateThumbnail: large JSON fallback applied (len=', rawText.length, 'elements=', cheapElementsCount, ')');
+                        window.__lastThumbnailDebug = { stage: 'fallback', rawLen: rawText.length, cheapElementsCount };
                         const placeholder = `<div class="thumbnail-canvas"><div class="thumbnail-block table active" style="left:0px;top:0px;width:100%;height:100%"></div></div>`;
                         panel.innerHTML = `<div class="mini-map-resize-handle" title="${this.getTranslation('thumbnailHint')}"></div><div class="mini-map-header"><div class="mini-map-title">${this.getTranslation('thumbnail')}</div><div class="mini-map-hint" title="${this.getTranslation('thumbnailHint')}">${this.getTranslation('thumbnailHint')}</div></div><div class="mini-map-overview"><div class="mini-map-overview-grid"></div>${placeholder}<div class="mini-map-viewport" id="thumbnailViewport"></div><div class="mini-map-overview-label" id="thumbnailOverviewLabel">${this.getTranslation('thumbnailOverviewLabel')}</div></div>`;
                         this.updateThumbnailViewport();
@@ -2099,9 +2542,18 @@
                     }
                 } catch (err) {
                     console.warn('thumbnail fallback check failed', err);
+                    window.__lastThumbnailDebug = { stage: 'fallback-check-error', error: String(err) };
                 }
-
                 const blocks = this.collectThumbnailBlocks();
+                try {
+                    const blocksHtml = blocks || '';
+                    const blocksCount = (blocksHtml.match(/class="thumbnail-block/g) || []).length;
+                    window.__lastThumbnailDebug = { stage: 'collected', blocksHtmlLength: blocksHtml.length, blocksCount };
+                    console.log('updateThumbnail: collected blocks length=', blocksHtml.length, 'blocksCount=', blocksCount);
+                } catch (e) {
+                    window.__lastThumbnailDebug = { stage: 'collected-error', error: String(e) };
+                    console.log('updateThumbnail: failed to count blocks', e);
+                }
                 panel.innerHTML = `<div class="mini-map-resize-handle" title="${this.getTranslation('thumbnailHint')}"></div><div class="mini-map-header"><div class="mini-map-title">${this.getTranslation('thumbnail')}</div><div class="mini-map-hint" title="${this.getTranslation('thumbnailHint')}">${this.getTranslation('thumbnailHint')}</div></div><div class="mini-map-overview"><div class="mini-map-overview-grid"></div><div class="thumbnail-canvas">${blocks}</div><div class="mini-map-viewport" id="thumbnailViewport"></div><div class="mini-map-overview-label" id="thumbnailOverviewLabel">${this.getTranslation('thumbnailOverviewLabel')}</div></div>`;
                 this.updateThumbnailViewport();
                 this.updateThumbnailPosition();
@@ -4636,6 +5088,7 @@
 
             // ===== Keyboard =====
             handleKeydown(e) {
+                if (this.isJsonEditorTarget(e.target)) return;
                 const headerInput = e.target.closest('.header-editor');
                 if (headerInput) return;
 
@@ -4833,6 +5286,16 @@
                     return;
                 }
 
+                if ((e.ctrlKey || e.metaKey) && cell?.dataset?.path !== undefined) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.selectCell(cell);
+                    if (this.inputPanelMode !== 'hidden' && !this.focusJsonPath(cell.dataset.path || '')) {
+                        this.setStatus('JSON 编辑器中未找到对应节点', true);
+                    }
+                    return;
+                }
+
                 if (this.editingCell && this.editingCell !== cell && !this.editingCell.contains(e.target)) {
                     this.finishEdit(this.editingCell);
                 }
@@ -4841,6 +5304,7 @@
             },
 
             handleCopy(e) {
+                if (this.isJsonEditorTarget(e.target)) return;
                 if (this.editingCell) this.finishEdit(this.editingCell);
                 if (this.getSelectedCells().length === 0) return;
                 const matrix = this.getSelectionMatrix();
@@ -4852,6 +5316,7 @@
             },
 
             handleCut(e) {
+                if (this.isJsonEditorTarget(e.target)) return;
                 if (this.editingCell) this.finishEdit(this.editingCell);
                 if (this.getSelectedCells().length === 0) return;
                 const matrix = this.getSelectionMatrix();

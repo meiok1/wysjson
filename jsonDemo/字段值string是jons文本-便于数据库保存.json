@@ -1,0 +1,62 @@
+{
+  "code": 0,
+  "msg": "查询成功",
+  "data": [
+    {
+      "mbCode": "bd_psndoc",
+      "empJson": "{\"country\":\"0001Z010000000079UJJ\",\"birthdate\":\"1981-03-30\",\"sex\":\"1\",\"mobile\":\"13161949991\",\"health\":\"@@@@Z710000000005L26\",\"polity\":\"@@@@Z710000000005L8H\",\"glbdef45\":\"Y\",\"glbdef22\":\"1001Z01000000000SG3Y\",\"glbdef46\":\"\",\"permanreside\":\"1001Z01000000000SFZF\",\"joinworkdate\":\"2010-05-08\",\"idtype\":\"1001Z01000000000AI36\",\"characterrpr\":\"1001N6100000000016G2\",\"marital\":\"@@@@Z710000000005L1Z\",\"glbdef8\":\"1001N6100000000ISCKG\",\"joinpolitydate\":\"\",\"fileaddress\":\"农业大学东校区\",\"nationality\":\"@@@@Z710000000005L2S\",\"name\":\"王永上\",\"id\":\"370102198103302916\",\"nativeplace\":\"1001Z0100000000164EN\",\"secret_email\":\"\"}",
+      "checkPass": "Y"
+    },
+    {
+      "mbCode": "hi_psndoc_edu",
+      "empJson": "[{\"begindate\":\"2005-09-01\",\"enddate\":\"2010-03-18\",\"school\":\"哈尔滨工业大学\",\"glbdef1\":\"\",\"major\":\"电子信息工程\",\"glbdef18\":\"1001N6100000006PAVOG\",\"studymode\":\"1001Z710000000016XJ5\",\"education\":\"1001N610000000000YQG\",\"pk_degree\":\"@@@@Z710000000005L6Q\",\"lasteducation\":\"N\",\"glbdef5\":\"Y\",\"glbdef2\":\"0001Z010000000079UII\",\"glbdef19\":\"2026-07-14\",\"glbdef3\":\"Y\",\"glbdef4\":\"Y\",\"glbdef6\":\"Y\",\"glbdef7\":\"Y\",\"glbdef8\":\"Y\",\"glbdef9\":\"Y\",\"undefined\":\"\"}]",
+      "checkPass": "Y"
+    },
+    { "mbCode": "hi_psndoc_enc", "empJson": "[]", "checkPass": "Y" },
+    {
+      "mbCode": "hi_psndoc_family",
+      "empJson": "[{\"mem_relation\":\"1001N6100000000016GF\",\"mem_name\":\"孙某某\",\"mem_birthday\":\"1982-05-08\",\"glbdef7\":\"\",\"politics\":\"@@@@Z710000000005L8Q\",\"glbdef1\":\"Y\",\"mem_corp\":\"某上海公司\",\"mem_job\":\"职员\",\"relaphone\":\"13161949992\",\"glbdef4\":\"0001Z010000000079UJJ\",\"glbdef3\":\"1001N610000000169GRP\",\"relaaddr\":\"\",\"glbdef2\":\"370102198103302916\",\"memo\":\"\"}]",
+      "checkPass": "Y"
+    },
+    {
+      "mbCode": "hi_psndoc_glbdef21",
+      "empJson": "[{\"glbdef1\":\"1001N6100000001N4O9G\",\"glbdef2\":\"\",\"glbdef3\":\"1001N6100000001N4W01\",\"glbdef6\":\"Y\",\"glbdef7\":\"bbjjk\",\"glbdef8\":\"2024-05-08\",\"glbdef9\":\"机构名称\",\"glbdef10\":\"\"}]",
+      "checkPass": "Y"
+    },
+    {
+      "mbCode": "hi_psndoc_glbdef5",
+      "empJson": "{\"glbdef6\":\"1001N6100000000S0RNK\",\"glbdef2\":\"6217002940000410265\",\"glbdef3\":\"中关村支行\",\"glbdef4\":\"2022-05-08\",\"glbdef5\":\"\"}",
+      "checkPass": "Y"
+    },
+    {
+      "mbCode": "hi_psndoc_langability",
+      "empJson": "[{\"langsort\":\"@@@@Z710000000005LKW\",\"langskill\":\"@@@@Z710000000005MJW\",\"langlev\":\"\",\"certifname\":\"\",\"certifcode\":\"\",\"certifdate\":\"2020-05-08\"}]",
+      "checkPass": "Y"
+    },
+    {
+      "mbCode": "hi_psndoc_linkman",
+      "empJson": "[{\"linkman\":\"孙净\",\"relation\":\"夫妻\",\"mobile\":\"13161949991\",\"linkaddr\":\"\"}]",
+      "checkPass": "Y"
+    },
+    {
+      "mbCode": "hi_psndoc_nationduty",
+      "empJson": "[{\"workname\":\"1001N610000000002H24\",\"worklevel\":\"@@@@Z710000000005LB4\",\"certificatenum\":\"3701066666\",\"istop\":\"Y\",\"glbdef5\":\"2023-05-08\",\"undefined\":\"2026-05-15\"}]",
+      "checkPass": "Y"
+    },
+    {
+      "mbCode": "hi_psndoc_title",
+      "empJson": "[{\"begindate\":\"2024-10-26\",\"pk_techposttitle\":\"@@@@Z710000000005LBB\",\"titlerank\":\"1001N6100000000037QX\",\"assorg\":\"技术职称初级评审委员会\",\"certifcode\":\"鲁24\",\"tiptop_flag\":\"Y\"}]",
+      "checkPass": "Y"
+    },
+    {
+      "mbCode": "hi_psndoc_work",
+      "empJson": "[{\"begindate\":\"2004-05-08\",\"enddate\":\"2015-05-08\",\"workcorp\":\"北京海博科技\",\"glbdef1\":\"N\",\"workdept\":\"测试部门\",\"workjob\":\"IT咨询顾问\",\"certifier\":\"\",\"certiphone\":\"\",\"memo\":\"\",\"glbdef2\":\"\"},{\"begindate\":\"2015-05-09\",\"enddate\":\"2026-05-08\",\"workcorp\":\"测试北京公司6\",\"glbdef1\":\"\",\"workdept\":\"咨询部\",\"workjob\":\"IT咨询顾问\",\"certifier\":\"王世鹏\",\"certiphone\":\"13161949991\",\"memo\":\"备选\",\"glbdef2\":\"来源\"}]",
+      "checkPass": "Y"
+    },
+    {
+      "mbCode": "t_attachment",
+      "empJson": "{\"102\":[{\"name\":\"学信网证明.pdf\",\"path\":\"wxfile://tmp_d659aa5a79bf2ddd12d7cd9fa6caeafbb90d0456a5c38397.pdf\",\"size\":443422,\"type\":\"pdf\",\"fileKey\":\"1778222906973_6dafd0b2-9d36-4a97-a16e-5aa976b2e845.pdf\",\"tempFilePath\":\"\"}],\"103\":[{\"name\":\"学信网证明.pdf\",\"path\":\"wxfile://tmp_f1b166c58eb19014ecc71fe5ed31b7ceaa1bbef8d3294e53.pdf\",\"size\":443422,\"type\":\"pdf\",\"fileKey\":\"1778222916611_7362f45e-62f2-4cb6-876f-08b6ee8e1dfb.pdf\",\"tempFilePath\":\"\"}],\"104\":[],\"105\":[],\"106\":[{\"name\":\"wxfile://tmp_5579b68b9c0de873f2ceeb41ddee933156d8fae058c6490c.jpg\",\"path\":\"wxfile://tmp_5579b68b9c0de873f2ceeb41ddee933156d8fae058c6490c.jpg\",\"size\":24856,\"type\":\"jpg\",\"fileKey\":\"1778223036729_6a27e0e9-cbb5-4371-a210-8e2355c7af17.jpg\",\"tempFilePath\":\"wxfile://tmp_a5a1e8549f7195967d5bd732022f4b352e11fa74f86aa69a4bd86ea95d0b6610.jpeg\"}],\"107\":[],\"108\":[],\"109\":[],\"110\":[],\"111\":[],\"113\":[]}",
+      "checkPass": "Y"
+    }
+  ]
+}
