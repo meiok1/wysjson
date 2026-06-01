@@ -1,0 +1,2 @@
+$path = 'D:\WysProgrammingTest\wysJSON\部署方式\网页部署\node_modules\monaco-editor\min\vs\loader.js'
+if (Test-Path -LiteralPath $path) { Write-Host "Found loader: $path" } else { Write-Host "Missing loader: $path" }

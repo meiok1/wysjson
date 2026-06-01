@@ -1,0 +1,125 @@
+{
+  "name": "jsonok",
+  "displayName": "JSONOK",
+  "description": "Visual editor for JSON and JavaScript data literals with the JSONOK table UI inside VS Code.",
+  "version": "0.1.0",
+  "publisher": "wys",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "json",
+    "table",
+    "editor",
+    "visual",
+    "spreadsheet"
+  ],
+  "files": [
+    "dist/extension.js",
+    "media/**",
+    "indexMonaco.html",
+    "src/help/jsonokok.html",
+    "src/help/images/ac0fb55f1f8fa0117077e0460fb44492_md5.png",
+    "src/help/images/8e90ce014b7efe2e09fa62bc1bebd832_md5.png",
+    "src/help/images/001a5025c9c007dd3adfa8e4b588fbec_md5.png",
+    "src/help/images/c695b3997cf494c9b78299ec17d47729_md5.png",
+    "src/help/images/ad5dde2f017a1e5b44774de37b71ad51_md5.png",
+    "src/help/images/cedc5bcec068a4f88caa8ef3891a90e2_md5.png",
+    "src/help/images/61c93dbab9fd333a0a85d226966a0317_md5.png",
+    "src/help/images/c8c374ac67445235d8f11103e80479d3_md5.png",
+    "src/help/images/4a0a6eb070102d54805d5944110fc7d8_md5.png",
+    "src/help/images/5926acc6a69e795ae26a83f3c725d75d_md5.png",
+    "src/help/images/d43caa97047bf7a85ef553818601e42a_md5.png",
+    "src/help/images/cde61ef45cb8d7bd486a7a754500f636_md5.png",
+    "src/help/images/e8123c159d263e618ac0dcd6c0a72cfe_md5.png",
+    "src/help/images/287cfddd8ac1c75f7b3841c2bfd19e25_md5.png",
+    "src/pic/**",
+    "README.md",
+    "LICENSE.txt",
+    "package.json",
+    "package.nls.json",
+    "package.nls.zh-CN.json"
+  ],
+  "activationEvents": [
+    "onCommand:JSONOK.openSelection",
+    "onCommand:JSONOK.openSelectionEnglish"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "JSONOK.openSelection",
+        "title": "%command.openSelection%"
+      },
+      {
+        "command": "JSONOK.openSelectionEnglish",
+        "title": "JSONOK: Open data in JSONOK"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "JSONOK.openSelectionEnglish",
+          "when": "editorTextFocus && JSONOK.lang == 'en' && (resourceLangId == json || resourceLangId == jsonc || resourceLangId == javascript || resourceLangId == typescript || resourceLangId == javascriptreact || resourceLangId == typescriptreact || resourceLangId == markdown || resourceLangId == plaintext || resourceLangId == vue || resourceLangId == html || resourceLangId == svelte || resourceLangId == astro)",
+          "group": "1_modification"
+        },
+        {
+          "command": "JSONOK.openSelection",
+          "when": "editorTextFocus && (JSONOK.lang != 'en' || !JSONOK.lang) && (resourceLangId == json || resourceLangId == jsonc || resourceLangId == javascript || resourceLangId == typescript || resourceLangId == javascriptreact || resourceLangId == typescriptreact || resourceLangId == markdown || resourceLangId == plaintext || resourceLangId == vue || resourceLangId == html || resourceLangId == svelte || resourceLangId == astro)",
+          "group": "1_modification"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "JSONOK",
+      "properties": {
+        "JSONOK.supportedLanguages": {
+          "type": "array",
+          "default": [
+            "json",
+            "jsonc",
+            "javascript",
+            "markdown",
+            "plaintext",
+            "typescript",
+            "javascriptreact",
+            "typescriptreact",
+            "vue",
+            "html",
+            "svelte",
+            "astro"
+          ],
+          "description": "Languages where the JSONOK right-click menu is shown"
+        }
+      }
+    }
+  },
+  "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@babel/generator": "^7.23.0",
+    "@babel/parser": "^7.23.0",
+    "@babel/types": "^7.23.0",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@babel/generator": "^7.23.0",
+    "@babel/parser": "^7.23.0",
+    "@babel/types": "^7.23.0",
+    "monaco-editor": "^0.52.0"
+  }
+}

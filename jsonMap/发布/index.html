@@ -683,10 +683,6 @@
             border-radius: 6px;
         }
 
-        .json-editor-stage:focus-within .json-editor-textarea {
-            z-index: 4;
-        }
-
         .json-editor-preview {
             position: absolute;
             inset: 0;
@@ -720,6 +716,29 @@
 
         .json-editor-line.current {
             background: rgba(26, 115, 232, 0.12);
+        }
+
+        .json-editor-caret {
+            position: absolute;
+            top: 0.2em;
+            bottom: 0.2em;
+            width: 2px;
+            background: #111827;
+            border-radius: 999px;
+            pointer-events: none;
+            z-index: 5;
+            animation: json-editor-caret-blink 1s steps(1) infinite;
+            box-shadow: 0 0 0 1px #ffffff, 0 0 0 2px rgba(17, 24, 39, 0.12);
+        }
+
+        @keyframes json-editor-caret-blink {
+            0%, 49% {
+                opacity: 1;
+            }
+
+            50%, 100% {
+                opacity: 0;
+            }
         }
 
         .json-editor-line.folded-start {
@@ -845,7 +864,7 @@
             display: none;
         }
 
-        .input-panel textarea {
+        .input-panel textarea:not(.json-editor-textarea) {
             flex: 1;
             background: #ffffff;
             color: #333;
@@ -2511,10 +2530,10 @@
                 if (jsonInput) {
                     jsonInput.addEventListener('input', () => this.renderJsonEditorDecorations());
                     jsonInput.addEventListener('scroll', () => this.syncJsonEditorScroll());
-                    jsonInput.addEventListener('keyup', () => this.updateJsonEditorCurrentLine());
-                    jsonInput.addEventListener('click', () => this.updateJsonEditorCurrentLine());
-                    jsonInput.addEventListener('mouseup', () => this.updateJsonEditorCurrentLine());
-                    jsonInput.addEventListener('focus', () => this.updateJsonEditorCurrentLine());
+                    jsonInput.addEventListener('keyup', () => this.renderJsonEditorDecorations());
+                    jsonInput.addEventListener('click', () => this.renderJsonEditorDecorations());
+                    jsonInput.addEventListener('mouseup', () => this.renderJsonEditorDecorations());
+                    jsonInput.addEventListener('focus', () => this.renderJsonEditorDecorations());
                     jsonInput.addEventListener('click', (e) => this.handleJsonTextareaClick(e));
                     // Ensure native textarea shortcuts and deletion work inside the JSON editor
                     jsonInput.addEventListener('keydown', (e) => {
@@ -2823,6 +2842,24 @@
                 return textarea.value.slice(0, cursor).split('\n').length;
             },
 
+            getJsonEditorCurrentColumn(textarea) {
+                if (!textarea) return 0;
+                const cursor = typeof textarea.selectionStart === 'number' ? textarea.selectionStart : 0;
+                const lastLineBreak = textarea.value.slice(0, cursor).lastIndexOf('\n');
+                return lastLineBreak === -1 ? cursor : cursor - lastLineBreak - 1;
+            },
+
+            measureJsonEditorTextWidth(text) {
+                const textarea = document.getElementById('jsonInput');
+                if (!textarea || !text) return 0;
+                const canvas = this._jsonEditorMeasureCanvas || (this._jsonEditorMeasureCanvas = document.createElement('canvas'));
+                const context = canvas.getContext('2d');
+                if (!context) return 0;
+                const style = getComputedStyle(textarea);
+                context.font = `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`.trim().replace(/\s+/g, ' ');
+                return context.measureText(text).width;
+            },
+
             buildJsonPreviewPathMap(text) {
                 let value;
                 try {
@@ -2906,7 +2943,7 @@
                 textarea.setSelectionRange(startOffset + caretOffset, startOffset + caretOffset);
                 const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight) || 19.2;
                 textarea.scrollTop = Math.max(0, (targetLine - 1) * lineHeight - textarea.clientHeight / 3);
-                this.updateJsonEditorCurrentLine();
+                this.renderJsonEditorDecorations();
                 this.syncJsonEditorScroll();
             },
 
@@ -3156,6 +3193,8 @@
                 const text = jsonInput.value || '';
                 const lines = text.split('\n');
                 const currentLine = this.getJsonEditorCurrentLine(jsonInput);
+                const currentColumn = this.getJsonEditorCurrentColumn(jsonInput);
+                const showCaret = document.activeElement === jsonInput;
                 const pathMap = this.buildJsonPreviewPathMap(text);
                 const foldRanges = this.getJsonFoldRanges(lines);
                 const foldedStarts = new Set(this.jsonEditorFoldedLines);
@@ -3191,11 +3230,15 @@
                     const foldButton = entry.isFoldStart
                         ? `<button type="button" class="json-editor-fold-toggle ${foldedStarts.has(entry.lineNumber) ? 'collapsed' : ''}" data-line="${entry.lineNumber}" title="${foldedStarts.has(entry.lineNumber) ? '展开折叠块' : '折叠该块'}">${foldedStarts.has(entry.lineNumber) ? '▾' : '▸'}</button>`
                         : '';
+                    const caretLeft = 16 + this.measureJsonEditorTextWidth(entry.text.slice(0, entry.lineNumber === currentLine ? currentColumn : 0));
+                    const caret = showCaret && entry.lineNumber === currentLine
+                        ? `<span class="json-editor-caret" style="left:${caretLeft}px;"></span>`
+                        : '';
                     const suffix = entry.isFoldStart && entry.hiddenCount > 0
                         ? `<span class="json-editor-fold-count"> ${foldedStarts.has(entry.lineNumber) ? '已折叠' : '可折叠'} ${entry.hiddenCount} 行</span>`
                         : '';
                     const pathAttr = entry.path ? ` data-path="${this.escapeHtml(entry.path)}"` : '';
-                    return `<div class="${classes.join(' ')}" data-line="${entry.lineNumber}"${pathAttr}>${this.highlightJsonLine(entry.text)}${suffix}${foldButton}</div>`;
+                    return `<div class="${classes.join(' ')}" data-line="${entry.lineNumber}"${pathAttr}>${this.highlightJsonLine(entry.text)}${suffix}${foldButton}${caret}</div>`;
                 }).join('') || '<div class="json-editor-line current" data-line="1">&nbsp;</div>';
                 this.syncJsonEditorScroll();
             },

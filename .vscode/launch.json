@@ -5,9 +5,11 @@
       "name": "Run Extension (调试扩展)",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-      "preLaunchTask": "npm: compile",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/部署方式/vscodeExtension"
+      ],
+      "outFiles": ["${workspaceFolder}/部署方式/vscodeExtension/dist/**/*.js"],
+      "preLaunchTask": "npm: compile extension",
       "presentation": {
         "echo": true,
         "reveal": "always",
@@ -22,10 +24,10 @@
       "request": "launch",
       "args": [
         "${workspaceFolder}/jsonDemo",
-        "--extensionDevelopmentPath=${workspaceFolder}"
+        "--extensionDevelopmentPath=${workspaceFolder}/部署方式/vscodeExtension"
       ],
-      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-      "preLaunchTask": "npm: compile",
+      "outFiles": ["${workspaceFolder}/部署方式/vscodeExtension/dist/**/*.js"],
+      "preLaunchTask": "npm: compile extension",
       "presentation": {
         "echo": true,
         "reveal": "always",
@@ -44,7 +46,7 @@
     {
       "name": "Extension + Test (扩展+测试)",
       "configurations": ["Run Extension with Test Data (带测试数据)"],
-      "preLaunchTask": "npm: compile"
+      "preLaunchTask": "npm: compile extension"
     }
   ]
 }

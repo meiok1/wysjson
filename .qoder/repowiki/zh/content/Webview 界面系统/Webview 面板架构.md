@@ -26,7 +26,7 @@
 9. [结论](#结论)
 
 ## 简介
-本项目为 VS Code 扩展中的 Webview 面板，提供嵌套 JSON 数据的表格化编辑体验。用户可在 VS Code 编辑器中右键选择 JavaScript/TypeScript/Markdown 等文件中的对象或数组字面量，通过 wysJSON 在独立的 Webview 面板中以 Excel 风格的表格进行可视化编辑，并将变更写回源文件。
+本项目为 VS Code 扩展中的 Webview 面板，提供嵌套 JSON 数据的表格化编辑体验。用户可在 VS Code 编辑器中右键选择 JavaScript/TypeScript/Markdown 等文件中的对象或数组字面量，通过 JSONOKOK 在独立的 Webview 面板中以 Excel 风格的表格进行可视化编辑，并将变更写回源文件。
 
 ## 项目结构
 该仓库采用 VS Code 扩展标准结构，核心文件分布如下：

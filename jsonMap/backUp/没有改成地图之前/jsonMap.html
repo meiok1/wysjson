@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>wysJSON - Nested JSON Table Editor</title>
+    <title>JSONOKOK - Nested JSON Table Editor</title>
     <style>
         /* ============================================================
-   wysJSON - Excel-Style Theme (Light)
+   JSONOKOK - Excel-Style Theme (Light)
    ============================================================ */
         :root {
             --grid-color: #d4d4d4;
@@ -1103,7 +1103,7 @@
 
     <!-- Toolbar -->
     <div class="toolbar">
-        <span class="title">📋 wysJSON</span>
+        <span class="title">📋 JSONOKOK</span>
         <button id="btnToggleInput" title="Toggle JSON Input Panel">📝 输入JSON</button>
         <select id="languageSelect" class="language-select" title="Language">
             <option value="auto">🌐 Auto</option>
@@ -1152,7 +1152,7 @@
             <div class="mini-map hidden" id="miniMap"></div>
             <div class="empty-state" id="emptyState">
                 <div class="icon">📋</div>
-                <h3>wysJSON 表格编辑器</h3>
+                <h3>JSONOKOK 表格编辑器</h3>
                 <p>点击 <strong>📝 输入JSON</strong> 粘贴数据，或点击 <strong>🧪 示例数据</strong> 加载示例</p>
             </div>
         </div>
@@ -1168,12 +1168,12 @@
 
     <script>
         // ============================================================
-        // wysJSON - Nested JSON Table Editor
+        // JSONOKOK - Nested JSON Table Editor
         // Designed to be portable to VS Code Extension
         // ============================================================
 
         const App = {
-            uiStateStorageKey: 'wysjson.ui-state.v1',
+            uiStateStorageKey: 'JSONOKOK.ui-state.v1',
             data: null,
             nestedStates: {}, // track expand/collapse state by path
             columnStates: {}, // track header-level expand/collapse state by path
@@ -1221,7 +1221,7 @@
             translations: {
                 'en': {
                     ready: 'Ready',
-                    title: '📋 wysJSON',
+                    title: '📋 JSONOKOK',
                     toggleInput: '📝 Input JSON',
                     format: '✨ Format',
                     minify: '📦 Minify',
@@ -1295,7 +1295,7 @@
                 },
                 'zh-CN': {
                     ready: '就绪',
-                    title: '📋 wysJSON',
+                    title: '📋 JSONOKOK',
                     toggleInput: '📝 输入JSON',
                     format: '✨ 格式化',
                     minify: '📦 压缩',
@@ -1425,7 +1425,7 @@
                 this.bindEvents();
                 // Language initialization from localStorage
                 try {
-                    const userPref = localStorage.getItem('wysjson.language') || 'auto';
+                    const userPref = localStorage.getItem('JSONOKOK.language') || 'auto';
                     this.userLangPref = userPref;
                     // Default to English for 'auto' unless user chose otherwise
                     this.currentLanguage = userPref === 'auto' ? 'en' : userPref;
@@ -1438,7 +1438,7 @@
                             this.userLangPref = v;
                             this.currentLanguage = v === 'auto' ? (navigator.language && navigator.language.startsWith('zh') ? 'zh-CN' : 'en') : v;
                             document.documentElement.lang = this.currentLanguage;
-                            localStorage.setItem('wysjson.language', v);
+                            localStorage.setItem('JSONOKOK.language', v);
                             this.applyTranslations();
                         });
                     }

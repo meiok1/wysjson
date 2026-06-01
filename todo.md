@@ -7,4 +7,4 @@
 
 # string字段值是json
 
-D:\WysProgrammingTest\wysJSON\jsonDemo\字段值string是jons文本-便于数据库保存.json
+D:\WysProgrammingTest\JSONOKOK\jsonDemo\字段值string是jons文本-便于数据库保存.json

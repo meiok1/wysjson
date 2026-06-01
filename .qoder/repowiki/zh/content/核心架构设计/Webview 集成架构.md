@@ -23,7 +23,7 @@
 9. [结论](#结论)
 
 ## 简介
-本文件系统性梳理 wysJSON 在 VS Code 扩展中的 Webview 集成架构，涵盖以下主题：
+本文件系统性梳理 JSONOKOK 在 VS Code 扩展中的 Webview 集成架构，涵盖以下主题：
 - VS Code Webview 面板的创建与配置（内容安全策略、本地资源根目录、脚本启用）
 - 扩展与 Webview 的消息通信机制（init、save、cancel 等）
 - Webview 内容的动态生成（HTML/CSS/JS 集成）
@@ -65,7 +65,7 @@ PKG --> EXT
 
 ## 核心组件
 - 扩展入口与命令
-  - 注册命令：打开 wysJSON 编辑器
+  - 注册命令：打开 JSONOKOK 编辑器
   - 英文菜单命令：用于在用户偏好为英文时显示非本地化标签
 - Webview 面板创建
   - 启用脚本、限制本地资源根目录、设置内容安全策略
@@ -200,15 +200,15 @@ Render --> Events
 - [media/webview.js:250-277](file://media/webview.js#L250-L277)
 
 ### 国际化支持
-- 语言偏好存储：globalState 键 wysjson.language，默认 auto
-- 上下文键：wysjson.lang，用于控制菜单显示英文或本地化标签
+- 语言偏好存储：globalState 键 JSONOKOK.language，默认 auto
+- 上下文键：JSONOKOK.lang，用于控制菜单显示英文或本地化标签
 - Webview 翻译：内置中英双语映射，按用户选择动态应用
 - 包贡献：通过 package.nls.json 与 package.nls.zh-CN.json 提供标题翻译
 
 ```mermaid
 flowchart TD
 Pref["读取用户语言偏好"] --> Lang["计算有效语言"]
-Lang --> Ctx["设置上下文键 wysjson.lang"]
+Lang --> Ctx["设置上下文键 JSONOKOK.lang"]
 Ctx --> WV["Webview 接收 init 并应用翻译"]
 WV --> UI["界面切换为对应语言"]
 ```
@@ -329,7 +329,7 @@ JS --> VSAPI["acquireVsCodeApi()"]
 - [media/webview.js:4894-4928](file://media/webview.js#L4894-L4928)
 
 ## 结论
-wysJSON 的 Webview 集成架构以清晰的职责划分实现了 VS Code 与前端交互的无缝衔接：
+JSONOKOK 的 Webview 集成架构以清晰的职责划分实现了 VS Code 与前端交互的无缝衔接：
 - 面板创建与安全策略配置确保资源可控
 - 消息协议简洁可靠，扩展与 Webview 各司其职
 - Excel 风格表格提供直观的数据编辑体验

@@ -1,0 +1,6 @@
+// JSON5 示例
+{
+  unquoted: "yes",
+  trailing: "comma",
+  arr: [1, 2, 3],
+}

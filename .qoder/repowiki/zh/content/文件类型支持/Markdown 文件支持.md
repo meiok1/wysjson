@@ -28,7 +28,7 @@
 10. [附录](#附录)
 
 ## 简介
-本文件系统性说明 wysJSON 在 VS Code 中对 Markdown 文件的支持，尤其是对“围栏代码块（fenced code block）”的识别与提取机制。文档涵盖以下要点：
+本文件系统性说明 JSONOKOK 在 VS Code 中对 Markdown 文件的支持，尤其是对“围栏代码块（fenced code block）”的识别与提取机制。文档涵盖以下要点：
 - Markdown 代码块的识别算法：围栏标记检测、边界确定、语言标识符处理。
 - 代码块内 JSON/JS/TS 等内容的提取与解析流程。
 - 与 VS Code Markdown 渲染器的协作方式与兼容性。
@@ -37,7 +37,7 @@
 - Markdown 中嵌套 JSON 的使用建议与注意事项。
 
 ## 项目结构
-wysJSON 扩展的核心由三部分组成：
+JSONOKOK 扩展的核心由三部分组成：
 - 扩展入口与 VS Code 集成：负责命令注册、编辑器交互、Markdown 代码块识别与提取。
 - 解析与建模：基于 Babel 的语法解析，将代码片段转换为中间模型，并支持回写生成。
 - Webview 集成：将中间模型渲染为表格 UI，支持编辑与保存回写。
@@ -231,7 +231,7 @@ AST转换 --> JsonNode : "生成"
 ### 组件四：与 VS Code Markdown 渲染器的协作
 - 语言识别：扩展通过 document.languageId 判断当前文件类型，针对 Markdown 进行围栏识别。
 - 菜单与上下文：通过 package.json 的 contributes.menus.editor/context 控制右键菜单显示，支持英文与本地化标签切换。
-- 渲染器兼容：VS Code 的 Markdown 渲染器会高亮围栏代码块的语言标识符；wysJSON 当前不解析语言标识符，直接按围栏内文本处理。
+- 渲染器兼容：VS Code 的 Markdown 渲染器会高亮围栏代码块的语言标识符；JSONOKOK 当前不解析语言标识符，直接按围栏内文本处理。
 
 章节来源
 - [src/extension.ts:19-44](file://src/extension.ts#L19-L44)
@@ -241,7 +241,7 @@ AST转换 --> JsonNode : "生成"
 ### 组件五：不同语言标识符的代码块处理差异
 - 当前行为：扩展未解析围栏语言标识符，统一按内部代码文本进行提取与解析。
 - 建议实现：可在扩展入口增加语言判定（如 js/ts/json 等），针对不同语言采用不同的解析策略或提示信息。
-- 与 VS Code 协作：VS Code 渲染器会依据语言标识符进行语法高亮；wysJSON 的目标是提取与编辑 JSON/JS 片段，不改变渲染器的高亮行为。
+- 与 VS Code 协作：VS Code 渲染器会依据语言标识符进行语法高亮；JSONOKOK 的目标是提取与编辑 JSON/JS 片段，不改变渲染器的高亮行为。
 
 章节来源
 - [src/extension.ts:64-108](file://src/extension.ts#L64-L108)
@@ -317,13 +317,13 @@ FROMMODEL --> MODEL
 - [src/parser/fromModel.ts:49-56](file://src/parser/fromModel.ts#L49-L56)
 
 ## 结论
-wysJSON 在 VS Code 中对 Markdown 文件的代码块支持以“围栏识别 + 三层提取 + AST 转模型 + 精确回写”为核心路径。当前实现未解析语言标识符，直接按围栏内文本处理，与 VS Code Markdown 渲染器保持良好协作。通过容错提取与严格的写回校验，扩展在复杂场景下仍能提供稳定可靠的 JSON/JS 数据编辑体验。未来可进一步增强语言标识符识别与代码高亮支持，以提升多语言代码块的可用性。
+JSONOKOK 在 VS Code 中对 Markdown 文件的代码块支持以“围栏识别 + 三层提取 + AST 转模型 + 精确回写”为核心路径。当前实现未解析语言标识符，直接按围栏内文本处理，与 VS Code Markdown 渲染器保持良好协作。通过容错提取与严格的写回校验，扩展在复杂场景下仍能提供稳定可靠的 JSON/JS 数据编辑体验。未来可进一步增强语言标识符识别与代码高亮支持，以提升多语言代码块的可用性。
 
 ## 附录
 
 ### Markdown 文件中代码块格式示例与处理差异
-- JSON 代码块：推荐使用 json 语言标识符，便于 VS Code 语法高亮；wysJSON 当前按内部文本处理，不依赖语言标识符。
-- JavaScript/TypeScript 代码块：使用 js/ts 语言标识符；wysJSON 会将其作为 JS/TS 片段进行提取与编辑。
+- JSON 代码块：推荐使用 json 语言标识符，便于 VS Code 语法高亮；JSONOKOK 当前按内部文本处理，不依赖语言标识符。
+- JavaScript/TypeScript 代码块：使用 js/ts 语言标识符；JSONOKOK 会将其作为 JS/TS 片段进行提取与编辑。
 - 其他语言：如 yaml、xml 等，扩展默认按光标包围扫描策略处理，可能无法识别对象/数组字面量。
 
 章节来源
@@ -332,7 +332,7 @@ wysJSON 在 VS Code 中对 Markdown 文件的代码块支持以“围栏识别 +
 - [jsonDemo/001.json:1-23](file://jsonDemo/001.json#L1-L23)
 
 ### Markdown 文件中嵌套 JSON 的最佳实践
-- 使用围栏代码块包裹 JSON/JS 片段，便于 wysJSON 准确识别与提取。
+- 使用围栏代码块包裹 JSON/JS 片段，便于 JSONOKOK 准确识别与提取。
 - 在 JSON 代码块中保持清晰的缩进与换行，有助于生成更易读的回写代码。
 - 对于大型 JSON，建议分段编写并在需要时拆分为多个围栏代码块，以提升可维护性与编辑效率。
 

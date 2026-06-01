@@ -1,11 +1,11 @@
-# wysJSON 项目记忆体
+# JSONOKOK 项目记忆体
 
 这份文档不是产品宣传，也不是泛化 README。
 它的目标是：换电脑、换会话、换模型之后，能快速恢复当前项目语境，继续高效配合做 vibe coding。
 
 ## 1. 当前项目是什么
 
-`wysJSON` 目前是一个单文件原型：`index.html`。
+`JSONOKOK` 目前是一个单文件原型：`index.html`。
 
 它不是完整 VS Code 扩展，而是一个可直接在浏览器打开的 JSON 表格编辑器，核心目标是：
 

@@ -1,4 +1,4 @@
-Migration / Patch Plan — WYSJSON → Infinite JSON Grid
+Migration / Patch Plan — JSONOKOK → Infinite JSON Grid
 
 Purpose
 - A concise, actionable list of code edits (add/modify locations) to incrementally introduce a sparse Grid of JSON tiles (integer x,y), asynchronous tile loading, single-file persistence, and fuzzy Quick-Jump across all tiles while minimizing risk to existing behavior.
@@ -48,7 +48,7 @@ Patch 3 — App adapter + currentTile
 Patch 4 — Serialization single-file format
 - Add `App.saveGridToString()` using `grid.serialize()` and `App.loadGridFromString(str)` to `deserialize` — format described in plan.
 - Add menu/toolbar bindings: extend existing Export/Import buttons to offer Grid export/import when `USE_GRID=true`.
-- Persist `Grid` to `localStorage` under a new key `wysjson.grid.v1` for initial testing.
+- Persist `Grid` to `localStorage` under a new key `JSONOKOK.grid.v1` for initial testing.
 
 Patch 5 — Index prototype (in-file)
 - Add `Index` object in the script (lightweight, in-file):

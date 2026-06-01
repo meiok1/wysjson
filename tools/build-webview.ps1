@@ -1,6 +1,6 @@
 # Build webview.js by extracting JS from index.html and applying VS Code integration modifications
 
-$root = "d:\WysProgrammingTest\wysJSON"
+$root = "d:\WysProgrammingTest\JSONOKOK"
 $src  = Join-Path $root "index.html"
 $dst  = Join-Path $root "media\webview.js"
 
@@ -23,7 +23,7 @@ Write-Host "Extracted JS: $($js.Length) chars"
 # =====================================================================
 $js = @'
 // ============================================================
-// wysJSON Webview - VS Code Extension Integration
+// JSONOKOK Webview - VS Code Extension Integration
 // Adapted from index.html standalone editor
 // ============================================================
 const vscode = acquireVsCodeApi();
@@ -47,7 +47,7 @@ $js = $js.Replace($old2, $new2)
 $old3 = "        this.setStatus('就绪');"
 $new3 = @'
         this.setStatus('等待数据...');
-        console.log('[wysJSON webview] init called, sending ready');
+        console.log('[JSONOKOK webview] init called, sending ready');
         vscode.postMessage({ type: 'ready' });
 '@
 $js = $js.Replace($old3, $new3)
@@ -160,7 +160,7 @@ $newMethods = @'
     // ===== VS Code Extension Integration =====
 
     handleExtensionMessage(message) {
-        console.log('[wysJSON webview] received message:', message.type);
+        console.log('[JSONOKOK webview] received message:', message.type);
         if (message.type === 'init') {
             this.model = message.rootModel;
             this.modelNodeMap = {};
@@ -331,7 +331,7 @@ $newMethods = @'
             return this.setStatus('数据未加载', true);
         }
         const savedModel = this.rebuildModelFromData(this.data, '');
-        console.log('[wysJSON webview] sending save, model.kind:', savedModel.kind);
+        console.log('[JSONOKOK webview] sending save, model.kind:', savedModel.kind);
         vscode.postMessage({ type: 'save', model: savedModel });
         this.setStatus('正在保存...');
     },

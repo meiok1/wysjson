@@ -1,4 +1,4 @@
-# 🚀 wysJSON 扩展 - 你是第一次写 VSCode 插件？这是你的快速指南
+# 🚀 JSONOKOK 扩展 - 你是第一次写 VSCode 插件？这是你的快速指南
 
 ## 📌 目前的状态
 
@@ -52,7 +52,7 @@
 5. 右键点击
    ↓
 6. 你应该看到菜单项：
-   ✓ "wysJSON: 可视化编辑所选 JS 数据"
+   ✓ "JSONOKOK: 可视化编辑所选 JS 数据"
 
    如果看不到：
    ❌ 检查文件是否为 .js 或 .ts
@@ -222,7 +222,7 @@ Webview 中的代码 ←→ extension.ts 中的代码
     ↓
 menus.editor/context 配置检查条件
     ↓
-触发 command: wysjson.openSelection
+触发 command: JSONOKOK.openSelection
     ↓
 执行 registerCommand 中的处理函数
 ```
@@ -306,7 +306,7 @@ A: 1) 保存文件（Ctrl+S），2) 编译（Ctrl+Shift+B），3) 重启调试�
 A: 按 Ctrl+Shift+P 输入 "Reload Window" 重新加载 DEV Host 窗口。
 
 **Q: 如何看到详细的错误日志？**
-A: Ctrl+` 打开终端，点击 Output 标签，选择 "wysJSON" channel。
+A: Ctrl+` 打开终端，点击 Output 标签，选择 "JSONOKOK" channel。
 
 ---
 

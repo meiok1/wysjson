@@ -1,0 +1,30 @@
+Planned sample files to create:
+
+Vue:
+- sample.vue (single-file component with JSON literal)
+- sample-data.ts (exporting JSON literal)
+
+React:
+- sample.jsx (component with JSON literal)
+- sampleData.ts (exporting JSON literal)
+
+Angular:
+- sample.component.ts
+- sample-data.ts
+
+TypeScript / JS:
+- literal.ts
+- literal.js
+- data.json5
+- data.yaml
+- data.toml
+
+Other:
+- sample.html (inline script with JSON)
+- sample.xml
+- sample.json
+- sample.jsonc (JSON with comments)
+- sample.env (KEY=VALUE)
+- sample.sql (INSERT with JSON literal)
+
+Create brief, concise samples covering common syntaxes.

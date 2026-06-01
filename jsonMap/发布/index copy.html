@@ -34,7 +34,7 @@
     </script>
     <style>
         /* ============================================================
-   wysJSON - Excel-Style Theme (Light)
+   JSONOKOK - Excel-Style Theme (Light)
    ============================================================ */
         :root {
             --grid-color: #d4d4d4;
@@ -1942,12 +1942,12 @@
 
     <script>
         // ============================================================
-        // wysJSON - Nested JSON Table Editor
+        // JSONOKOK - Nested JSON Table Editor
         // Designed to be portable to VS Code Extension
         // ============================================================
 
         const App = {
-            uiStateStorageKey: 'wysjson.ui-state.v1',
+            uiStateStorageKey: 'JSONOKOK.ui-state.v1',
             data: null,
             nestedStates: {}, // track expand/collapse state by path
             columnStates: {}, // track header-level expand/collapse state by path
@@ -2384,7 +2384,7 @@
                 this.bindEvents();
                 // Language initialization from localStorage
                 try {
-                    const storedPref = localStorage.getItem('wysjson.language') || 'en';
+                    const storedPref = localStorage.getItem('JSONOKOK.language') || 'en';
                     const userPref = storedPref === 'zh-CN' ? 'zh-CN' : 'en';
                     this.userLangPref = userPref;
                     this.currentLanguage = userPref;
@@ -2397,7 +2397,7 @@
                             this.userLangPref = v;
                             this.currentLanguage = v;
                             document.documentElement.lang = this.currentLanguage;
-                            localStorage.setItem('wysjson.language', v);
+                            localStorage.setItem('JSONOKOK.language', v);
                             this.applyTranslations();
                         });
                     }
@@ -3206,7 +3206,7 @@
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `wysJSON-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+                link.download = `JSONOKOK-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
                 document.body.appendChild(link);
                 link.click();
                 link.remove();

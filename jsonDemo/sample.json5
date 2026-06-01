@@ -1,0 +1,5 @@
+// duplicate small JSON5 sample for variety
+{
+  name: "json5-small",
+  ok: true,
+}

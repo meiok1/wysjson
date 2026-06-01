@@ -1,0 +1,9 @@
+# TOML 示例
+name = "示例TOML"
+count = 5
+
+[[items]]
+name = "item1"
+
+[[items]]
+name = "item2"

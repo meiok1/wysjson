@@ -27,7 +27,7 @@
 10. [附录](#附录)
 
 ## 引言
-本文件面向希望深入理解 wysJSON 在 JavaScript/TypeScript 文件中如何解析与转换 AST 的开发者，系统阐述以下主题：
+本文件面向希望深入理解 JSONOKOK 在 JavaScript/TypeScript 文件中如何解析与转换 AST 的开发者，系统阐述以下主题：
 - Babel 解析器的配置与使用策略
 - 代码保留机制：如何在解析过程中保持原始代码格式与注释
 - 变量声明初始化器的提取策略与复杂嵌套结构处理
@@ -36,10 +36,10 @@
 - 性能优化建议与最佳实践
 
 ## 项目结构
-wysJSON 的 JavaScript/TypeScript 支持主要由以下模块构成：
+JSONOKOK 的 JavaScript/TypeScript 支持主要由以下模块构成：
 - 解析选项与插件配置：统一管理 Babel 解析器的插件集合与通用解析选项
 - 选择区域提取：从用户选区或光标位置提取对象/数组字面量，支持变量初始化器优先策略
-- AST 到中间模型：将 Babel AST 转换为 wysJSON 的 JsonNode 中间表示，并尽可能保留原始源码
+- AST 到中间模型：将 Babel AST 转换为 JSONOKOK 的 JsonNode 中间表示，并尽可能保留原始源码
 - 中间模型到代码：将编辑后的 JsonNode 写回为 JavaScript 源码，同时进行语法校验与缩进处理
 - 扩展入口：VS Code 扩展命令入口，负责提取、转换、验证与写回
 
@@ -293,7 +293,7 @@ FM-->>M : "返回 {success, code}"
 
 ### 扩展入口（命令、消息与写回）
 - 命令注册
-  - 注册“打开 wysJSON”命令，处理编辑器上下文菜单触发
+  - 注册“打开 JSONOKOK”命令，处理编辑器上下文菜单触发
 - 选区与光标提取
   - 支持 Markdown 代码块内提取、JS/TS 文件光标定位提取、普通文本文件的光标提取
   - 对 JS/TS 文件优先使用 AST 提取，增强准确性
@@ -379,7 +379,7 @@ PO --> FM
 - [src/extension.ts:423-430](file://src/extension.ts#L423-L430)
 
 ## 结论
-wysJSON 通过统一的 Babel 解析配置、稳健的选择提取策略、完善的 AST→模型转换与模型→代码生成机制，实现了对 JavaScript/TypeScript 文件的高质量支持。其核心优势在于：
+JSONOKOK 通过统一的 Babel 解析配置、稳健的选择提取策略、完善的 AST→模型转换与模型→代码生成机制，实现了对 JavaScript/TypeScript 文件的高质量支持。其核心优势在于：
 - 保留原始代码与格式，兼顾可读性与一致性
 - 对复杂结构（对象方法、扩展运算符、嵌套数组/对象）提供明确的处理策略
 - 在写回前进行双重校验，确保类型安全与语法正确

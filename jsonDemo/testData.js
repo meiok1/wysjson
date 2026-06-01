@@ -3,19 +3,19 @@
 // Test 1: Simple JSON object
 const simpleData = {
   name: "John Doe",
-  age: 30,
+  age: 30888,
   active: true,
   email: "john@example.com",
-  新列: [
-    {
-      value: 1,
-      新列: 1,
-    },
-    {
-      value: 1,
-      新列: 1,
-    },
-  ],
+  新列: [{
+    value: 1,
+    新列: 1
+  }, {
+    value: 1,
+    新列: 3333
+  }, {
+    value: 3333,
+    新列: ""
+  }]
 };
 
 console.log("Simple Data:", simpleData);
@@ -81,7 +81,7 @@ const simpleArray = [
     y: 333,
   },
   {
-    x: 333,
+    x: "中文#……！@#￥%……&*（））",
     y: 333,
   },
   {

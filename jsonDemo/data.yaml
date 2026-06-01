@@ -1,0 +1,8 @@
+# YAML 示例
+name: 示例YAML
+count: 2
+items:
+  - id: 1
+    label: A
+  - id: 2
+    label: B

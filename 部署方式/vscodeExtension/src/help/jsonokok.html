@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSONOKOK 帮助</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f7fb;
+            --panel: #ffffff;
+            --line: #d7deea;
+            --text: #1f2937;
+            --muted: #5b6472;
+            --accent: #2b6fe8;
+            --accent-soft: #e8f0ff;
+            --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+            color: var(--text);
+        }
+
+        .page {
+            width: min(1100px, calc(100vw - 32px));
+            margin: 0 auto;
+            padding: 32px 0 56px;
+        }
+
+        .hero,
+        .section {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .hero {
+            padding: 32px;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 {
+            margin: 0 0 12px;
+            font-size: 34px;
+            line-height: 1.15;
+        }
+
+        .hero p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1.7;
+            max-width: 760px;
+        }
+
+        .hero .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .toc {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin: 0 0 24px;
+        }
+
+        .toc a {
+            display: block;
+            padding: 14px 16px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.88);
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .toc a:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .section {
+            padding: 26px;
+            margin-bottom: 20px;
+        }
+
+        .section h2 {
+            margin: 0 0 10px;
+            font-size: 24px;
+        }
+
+        .section p,
+        .section li {
+            color: var(--muted);
+            line-height: 1.8;
+            font-size: 15px;
+        }
+
+        .section ul {
+            margin: 10px 0 0 18px;
+            padding: 0;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 18px;
+            margin-top: 18px;
+        }
+
+        figure {
+            margin: 0;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        figure img {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #eef3fb;
+        }
+
+        figcaption {
+            padding: 12px 14px;
+            border-top: 1px solid var(--line);
+            font-size: 13px;
+            color: var(--muted);
+            background: #fbfcfe;
+        }
+
+        pre {
+            margin: 14px 0 0;
+            padding: 16px;
+            border-radius: 14px;
+            overflow: auto;
+            background: #0f172a;
+            color: #e5eefc;
+            font-family: Consolas, "Cascadia Code", monospace;
+            font-size: 13px;
+            line-height: 1.65;
+        }
+
+        @media (max-width: 720px) {
+            .page {
+                width: calc(100vw - 20px);
+                padding: 20px 0 40px;
+            }
+
+            .hero,
+            .section {
+                border-radius: 16px;
+                padding: 20px;
+            }
+
+            .hero h1 {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page">
+        <section class="hero">
+            <h1>JSONOKOK 帮助</h1>
+            <p>
+                JSONOKOK 是一个类 Excel 的 JSON 可视化编辑器，适合查看深层 object / array 结构、快速定位节点、在表格里直接改值和改类型。
+                这个帮助页是轻量版单文件文档，只保留实际说明和截图，方便扩展打包时减少体积。
+            </p>
+            <div class="meta">
+                <span class="chip">支持 JSON / JSONC / JS / TS</span>
+                <span class="chip">表格化编辑</span>
+                <span class="chip">面包屑 + 聚焦</span>
+                <span class="chip">大 JSON 分层查看</span>
+            </div>
+        </section>
+
+        <nav class="toc">
+            <a href="#overview">总体介绍</a>
+            <a href="#open">如何打开 JSON</a>
+            <a href="#navigate">导航</a>
+            <a href="#search">搜索定位</a>
+            <a href="#edit">可视化编辑</a>
+            <a href="#performance">超大 JSON 性能优化</a>
+        </nav>
+        <section class="section" id="vscode-plugin">
+            <h2>VSCODE plugin JSONOK</h2>
+            <p>在 VS Code 中使用 JSONOK 插件的演示截图：</p>
+            <div class="image-grid">
+                <figure>
+                    <img src="images/vscodeDemo.png" alt="VSCODE plugin JSONOK 演示">
+                    <figcaption>VSCODE plugin JSONOK 插件界面示例。</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="overview">
+            <h2>总体介绍</h2>
+            <p>类似 Excel 的树形结构展示 JSON，可以一边看结构，一边直接在单元格里编辑内容。</p>
+            <pre>{
+  "字段1": "AAAAA"
+}</pre>
+            <div class="image-grid">
+                <figure>
+                    <img src="images/ac0fb55f1f8fa0117077e0460fb44492_md5.png" alt="JSONOKOK 总览">
+                    <figcaption>JSONOKOK 工作区总览。</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="open">
+            <h2>如何打开 JSON</h2>
+            <ul>
+                <li>右键当前 JSON / JS / TS 数据，选择 JSONOK 打开。</li>
+                <li>支持拖拽本地文件、直接在输入面板粘贴、或从当前编辑器内容打开。</li>
+                <li>输入面板和表格视图可以来回同步，适合快速修正。</li>
+            </ul>
+            <div class="image-grid">
+                <figure>
+                    <img src="images/8e90ce014b7efe2e09fa62bc1bebd832_md5.png" alt="导航和工作区布局">
+                    <figcaption>导航和工作区布局。</figcaption>
+                </figure>
+                <figure>
+                    <img src="images/001a5025c9c007dd3adfa8e4b588fbec_md5.png" alt="拖拽文件打开">
+                    <figcaption>拖拽本地文件直接打开 JSON。</figcaption>
+                </figure>
+                <figure>
+                    <img src="images/c695b3997cf494c9b78299ec17d47729_md5.png" alt="三种打开 JSON 的方式">
+                    <figcaption>可以从输入面板、上传、示例三种方式进入。</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="navigate">
+            <h2>导航</h2>
+            <ul>
+                <li>小地图可以快速定位到大画布中的任意区域。</li>
+                <li>右键节点可以聚焦当前子树，面包屑可快速返回上层。</li>
+                <li>支持 Ctrl 加鼠标框选、拖动画布和拖拽字段顺序。</li>
+            </ul>
+            <div class="image-grid">
+                <figure>
+                    <img src="images/ad5dde2f017a1e5b44774de37b71ad51_md5.png" alt="小地图导航">
+                    <figcaption>小地图支持点击定位。</figcaption>
+                </figure>
+                <figure>
+                    <img src="images/cedc5bcec068a4f88caa8ef3891a90e2_md5.png" alt="聚焦与面包屑导航">
+                    <figcaption>聚焦任意 JSON 节点后，可通过面包屑回到上级。</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="search">
+            <h2>搜索定位</h2>
+            <ul>
+                <li>浏览器内搜索：快捷键 Ctrl + F。</li>
+                <li>快速跳转：打开快速跳转窗，输入 key / value / path 搜索并点击定位。</li>
+            </ul>
+            <div class="image-grid">
+                <figure>
+                    <img src="images/61c93dbab9fd333a0a85d226966a0317_md5.png" alt="浏览器搜索">
+                    <figcaption>方式 1：Ctrl + F 搜索当前页面。</figcaption>
+                </figure>
+                <figure>
+                    <img src="images/c8c374ac67445235d8f11103e80479d3_md5.png" alt="快速跳转搜索">
+                    <figcaption>方式 2：快速跳转窗口里搜索并直接定位。</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="edit">
+            <h2>可视化编辑</h2>
+            <ul>
+                <li>支持把单元格直接切换成对象、数组、字符串、数字、布尔值、Null。</li>
+                <li>支持字符串形式保存的 JSON 转成普通节点并直接展开查看。</li>
+                <li>支持增加行、增加列、双击修改列标题、拖拽调整列顺序。</li>
+            </ul>
+            <div class="image-grid">
+                <figure>
+                    <img src="images/4a0a6eb070102d54805d5944110fc7d8_md5.png" alt="修改单元格类型">
+                    <figcaption>修改单元格类型。</figcaption>
+                </figure>
+                <figure>
+                    <img src="images/5926acc6a69e795ae26a83f3c725d75d_md5.png" alt="JSON 字符串转普通节点">
+                    <figcaption>字符串格式保存的 JSON 可以直接展开成普通节点。</figcaption>
+                </figure>
+                <figure>
+                    <img src="images/d43caa97047bf7a85ef553818601e42a_md5.png" alt="增加列与增加行">
+                    <figcaption>对象和数组都支持结构性增删改。</figcaption>
+                </figure>
+                <figure>
+                    <img src="images/cde61ef45cb8d7bd486a7a754500f636_md5.png" alt="拖拽修改顺序">
+                    <figcaption>拖拽字段可直接调整顺序。</figcaption>
+                </figure>
+            </div>
+        </section>
+
+        <section class="section" id="performance">
+            <h2>超大 JSON 性能优化</h2>
+            <ul>
+                <li>通过层级限制和“显示下一层”控制超大 JSON 的渲染范围，减少卡顿。</li>
+                <li>仍可在局部范围继续编辑，不需要一次性展开全部内容。</li>
+            </ul>
+            <div class="image-grid">
+                <figure>
+                    <img src="images/e8123c159d263e618ac0dcd6c0a72cfe_md5.png" alt="层级限制优化">
+                    <figcaption>用层级限制控制超大 JSON 的显示深度。</figcaption>
+                </figure>
+                <figure>
+                    <img src="images/287cfddd8ac1c75f7b3841c2bfd19e25_md5.png" alt="显示下一层">
+                    <figcaption>点击“显示下一层”继续按需展开。</figcaption>
+                </figure>
+            </div>
+        </section>
+    </div>
+</body>
+
+</html>

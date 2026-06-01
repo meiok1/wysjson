@@ -1,0 +1,6 @@
+{
+  // 示例：带注释的 JSONC
+  "title": "注释示例",
+  "enabled": true,
+  "list": [1, 2, 3],
+}

@@ -22,6 +22,29 @@
       "isBackground": false
     },
     {
+      "label": "npm: compile extension",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "compile"],
+      "options": {
+        "cwd": "${workspaceFolder}/部署方式/vscodeExtension"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": "$tsc",
+      "isBackground": false
+    },
+    {
       "label": "npm: watch",
       "type": "shell",
       "command": "npm",
@@ -57,6 +80,23 @@
         "panel": "shared"
       },
       "problemMatcher": "$tsc"
+    },
+    {
+      "label": "Open indexMonaco.html",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "Start-Process 'file:///D:/WysProgrammingTest/JSONOKOK/indexMonaco.html'"
+      ],
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "focus": false,
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
     }
   ]
 }
