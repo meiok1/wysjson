@@ -380,16 +380,16 @@ function extractLooseTextTarget(
           0,
           Math.min(anchorOffset - startOffset, selectedSource.length - 1),
         );
-        const selectedJsonRange =
-          findJsonRangeAtOffset(selectedSource, localAnchor) ??
-          findOutermostJsonRange(selectedSource);
+        const selectedJsonRange = findBestLooseTextJsonRange(
+          selectedSource,
+          localAnchor,
+          document.languageId,
+        );
         if (selectedJsonRange) {
-          const parsed = JSON.parse(
-            selectedSource.slice(
-              selectedJsonRange.start,
-              selectedJsonRange.end,
-            ),
-          ) as JsonValue;
+          const selectedLiteralSource = selectedSource.slice(
+            selectedJsonRange.start,
+            selectedJsonRange.end,
+          );
           return {
             uri: document.uri,
             languageId: document.languageId,
@@ -398,7 +398,7 @@ function extractLooseTextTarget(
               document.positionAt(startOffset + selectedJsonRange.start),
               document.positionAt(startOffset + selectedJsonRange.end),
             ),
-            rootModel: jsonValueToModel(parsed),
+            rootModel: parseLooseTextModel(selectedLiteralSource),
             title: `JSONOK: ${document.fileName.split(/[/\\]/).pop() ?? document.fileName}`,
           };
         }
@@ -407,12 +407,13 @@ function extractLooseTextTarget(
   }
 
   const source = document.getText();
-  const jsonRange =
-    findJsonRangeAtOffset(source, anchorOffset) ?? findUniqueJsonRange(source);
+  const jsonRange = findBestLooseTextJsonRange(
+    source,
+    anchorOffset,
+    document.languageId,
+  );
   if (jsonRange) {
-    const parsed = JSON.parse(
-      source.slice(jsonRange.start, jsonRange.end),
-    ) as JsonValue;
+    const literalSource = source.slice(jsonRange.start, jsonRange.end);
     return {
       uri: document.uri,
       languageId: document.languageId,
@@ -421,7 +422,7 @@ function extractLooseTextTarget(
         document.positionAt(jsonRange.start),
         document.positionAt(jsonRange.end),
       ),
-      rootModel: jsonValueToModel(parsed),
+      rootModel: parseLooseTextModel(literalSource),
       title: `JSONOK: ${document.fileName.split(/[/\\]/).pop() ?? document.fileName}`,
     };
   }
@@ -1042,62 +1043,216 @@ function findJsonRangeAtOffset(
   source: string,
   offset: number,
 ): { start: number; end: number } | null {
-  let best: { start: number; end: number } | null = null;
-  for (let start = offset; start >= 0; start -= 1) {
-    const current = source[start];
-    if (current !== "{" && current !== "[") {
-      continue;
-    }
-    const end = findMatchingJsonBracket(source, start);
-    if (end === null || offset < start || offset >= end) {
-      continue;
-    }
-    const snippet = source.slice(start, end);
-    try {
-      JSON.parse(snippet);
-      const nextSpan = end - start;
-      const bestSpan = best ? best.end - best.start : 0;
-      if (nextSpan > bestSpan) {
-        best = { start, end };
-      }
-    } catch {
-      // Ignore invalid JSON candidates.
-    }
-  }
-  return best;
+  return findBestJsonRangeNearOffset(source, offset, {
+    requireContainment: true,
+  });
 }
 
 function findOutermostJsonRange(
   source: string,
 ): { start: number; end: number } | null {
-  let best: { start: number; end: number } | null = null;
-  for (let start = 0; start < source.length; start += 1) {
-    const current = source[start];
-    if (current !== "{" && current !== "[") {
-      continue;
-    }
-    const end = findMatchingJsonBracket(source, start);
-    if (end === null) {
-      continue;
-    }
-    const snippet = source.slice(start, end);
-    try {
-      JSON.parse(snippet);
-      const nextSpan = end - start;
-      const bestSpan = best ? best.end - best.start : 0;
-      if (nextSpan > bestSpan) {
-        best = { start, end };
-      }
-    } catch {
-      // Ignore invalid JSON candidates.
-    }
+  const ranges = collectValidJsonLikeRanges(source);
+  if (ranges.length === 0) {
+    return null;
   }
-  return best;
+  return ranges.reduce((best, current) => {
+    const bestSpan = best.end - best.start;
+    const currentSpan = current.end - current.start;
+    return currentSpan > bestSpan ? current : best;
+  });
 }
 
 function findUniqueJsonRange(
   source: string,
 ): { start: number; end: number } | null {
+  const matches = collectValidJsonLikeRanges(source);
+
+  if (matches.length !== 1) {
+    return null;
+  }
+  return matches[0];
+}
+
+function findBestLooseTextJsonRange(
+  source: string,
+  offset: number,
+  languageId: string,
+): { start: number; end: number } | null {
+  const candidates: Array<{ start: number; end: number }> = [];
+  const seen = new Set<string>();
+
+  const addCandidate = (range: { start: number; end: number } | null): void => {
+    if (!range) {
+      return;
+    }
+    const key = `${range.start}:${range.end}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    candidates.push(range);
+  };
+
+  if (languageId === "markdown") {
+    addCandidate(findBestMarkdownFenceJsonRange(source, offset));
+  }
+
+  for (const nearbyOffset of collectNearbyMeaningfulOffsets(source, offset)) {
+    addCandidate(findBestJsonRangeNearOffset(source, nearbyOffset));
+    addCandidate(findJsonRangeAtOffset(source, nearbyOffset));
+  }
+
+  addCandidate(findOutermostJsonRange(source));
+  addCandidate(findUniqueJsonRange(source));
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  return candidates.reduce((best, current) => {
+    const bestDistance = getOffsetDistanceFromRange(offset, best);
+    const currentDistance = getOffsetDistanceFromRange(offset, current);
+    if (currentDistance !== bestDistance) {
+      return currentDistance < bestDistance ? current : best;
+    }
+    const bestSpan = best.end - best.start;
+    const currentSpan = current.end - current.start;
+    return currentSpan > bestSpan ? current : best;
+  });
+}
+
+function collectNearbyMeaningfulOffsets(
+  source: string,
+  offset: number,
+): number[] {
+  if (source.length === 0) {
+    return [0];
+  }
+
+  const normalizedOffset = Math.max(0, Math.min(offset, source.length - 1));
+  const offsets = new Set<number>([normalizedOffset]);
+
+  let left = normalizedOffset;
+  while (left > 0 && /\s/.test(source[left])) {
+    left -= 1;
+  }
+  offsets.add(left);
+
+  let right = normalizedOffset;
+  while (right < source.length - 1 && /\s/.test(source[right])) {
+    right += 1;
+  }
+  offsets.add(right);
+
+  return Array.from(offsets);
+}
+
+function findBestMarkdownFenceJsonRange(
+  source: string,
+  offset: number,
+): { start: number; end: number } | null {
+  const fences = collectMarkdownCodeFences(source);
+  let best: { start: number; end: number } | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const fence of fences) {
+    const localOffset = Math.max(
+      0,
+      Math.min(offset - fence.contentStart, fence.content.length - 1),
+    );
+    const localRange =
+      findBestJsonRangeNearOffset(fence.content, localOffset) ??
+      findOutermostJsonRange(fence.content);
+    if (!localRange) {
+      continue;
+    }
+
+    const adjusted = {
+      start: fence.contentStart + localRange.start,
+      end: fence.contentStart + localRange.end,
+    };
+    const distance = getOffsetDistanceFromRange(offset, adjusted);
+    if (distance < bestDistance) {
+      best = adjusted;
+      bestDistance = distance;
+      continue;
+    }
+    if (distance === bestDistance && best) {
+      const bestSpan = best.end - best.start;
+      const currentSpan = adjusted.end - adjusted.start;
+      if (currentSpan > bestSpan) {
+        best = adjusted;
+      }
+    }
+  }
+
+  return best;
+}
+
+function collectMarkdownCodeFences(
+  source: string,
+): Array<{ contentStart: number; content: string }> {
+  const fences: Array<{ contentStart: number; content: string }> = [];
+  const pattern = /```[^\n\r]*\r?\n([\s\S]*?)```/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(source)) !== null) {
+    const fullMatch = match[0];
+    const content = match[1] ?? "";
+    const contentStart = match.index + fullMatch.indexOf(content);
+    fences.push({ contentStart, content });
+  }
+
+  return fences;
+}
+
+function findBestJsonRangeNearOffset(
+  source: string,
+  offset: number,
+  options?: { requireContainment?: boolean },
+): { start: number; end: number } | null {
+  const ranges = collectValidJsonLikeRanges(source);
+  if (ranges.length === 0) {
+    return null;
+  }
+
+  let best: { start: number; end: number } | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const range of ranges) {
+    const distance = getOffsetDistanceFromRange(offset, range);
+    if (options?.requireContainment && distance !== 0) {
+      continue;
+    }
+
+    if (distance < bestDistance) {
+      best = range;
+      bestDistance = distance;
+      continue;
+    }
+
+    if (distance === bestDistance && best) {
+      const bestSpan = best.end - best.start;
+      const currentSpan = range.end - range.start;
+      if (currentSpan > bestSpan) {
+        best = range;
+      }
+    }
+  }
+
+  return best;
+}
+
+function collectValidJsonRanges(
+  source: string,
+): Array<{ start: number; end: number }> {
+  return collectValidJsonLikeRanges(source, { strictJsonOnly: true });
+}
+
+function collectValidJsonLikeRanges(
+  source: string,
+  options?: { strictJsonOnly?: boolean },
+): Array<{ start: number; end: number }> {
   const matches: Array<{ start: number; end: number }> = [];
   for (let start = 0; start < source.length; start += 1) {
     const current = source[start];
@@ -1110,17 +1265,42 @@ function findUniqueJsonRange(
     }
     const snippet = source.slice(start, end);
     try {
-      JSON.parse(snippet);
+      if (options?.strictJsonOnly) {
+        JSON.parse(snippet);
+      } else {
+        parseLooseTextModel(snippet);
+      }
       matches.push({ start, end });
     } catch {
-      // Ignore invalid JSON candidates.
+      // Ignore invalid JSON/JS literal candidates.
     }
   }
+  return matches;
+}
 
-  if (matches.length !== 1) {
-    return null;
+function parseLooseTextModel(source: string): JsonNode {
+  try {
+    return jsonValueToModel(JSON.parse(source) as JsonValue);
+  } catch {
+    const expression = parseSelectedExpression(
+      source,
+      getParserPlugins("javascript"),
+    );
+    return astNodeToModel(expression, source);
   }
-  return matches[0];
+}
+
+function getOffsetDistanceFromRange(
+  offset: number,
+  range: { start: number; end: number },
+): number {
+  if (offset < range.start) {
+    return range.start - offset;
+  }
+  if (offset >= range.end) {
+    return offset - range.end + 1;
+  }
+  return 0;
 }
 
 function findBracketedJavaScriptExpressionAtOffset(
