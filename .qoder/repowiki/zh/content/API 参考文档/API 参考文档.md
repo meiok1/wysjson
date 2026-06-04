@@ -28,7 +28,7 @@
 10. [附录](#附录)
 
 ## 简介
-本文件为 JSONOKOK VS Code 扩展的完整 API 参考文档，涵盖以下内容：
+本文件为 wysJSON VS Code 扩展的完整 API 参考文档，涵盖以下内容：
 - 公共接口与数据结构定义：JsonNode 类型系统、SourceInfo 元数据结构、统一的消息通信协议与响应类型
 - 扩展 API 方法：命令注册、消息通信协议、事件监听机制
 - VS Code 集成点：激活事件、命令贡献、菜单与国际化、配置项
@@ -302,7 +302,7 @@ RetOk2 --> End
 ### 扩展 API 与 VS Code 集成
 
 #### 命令注册与菜单
-- 命令：JSONOKOK.openSelection、JSONOKOK.openSelectionEnglish
+- 命令：wysjson.openSelection、wysjson.openSelectionEnglish
 - 菜单：编辑器上下文菜单，根据语言与上下文键控制显示
 - 国际化：菜单标题由包贡献文件提供，支持本地化
 
@@ -311,7 +311,7 @@ RetOk2 --> End
 - [extension.ts:22-38](file://src/extension.ts#L22-L38)
 
 #### 激活事件与生命周期
-- activationEvents：onCommand:JSONOKOK.openSelection、onCommand:JSONOKOK.openSelectionEnglish
+- activationEvents：onCommand:wysjson.openSelection、onCommand:wysjson.openSelectionEnglish
 - activate/deactivate：注册命令、日志输出
 - Webview 生命周期：创建面板、注入 HTML、监听消息、处理保存/取消
 
@@ -321,7 +321,7 @@ RetOk2 --> End
 - [extension.ts:329-378](file://src/extension.ts#L329-L378)
 
 #### 语言偏好与上下文键
-- 用户语言偏好存储于 globalState，扩展点：setContext JSONOKOK.lang 控制菜单显示
+- 用户语言偏好存储于 globalState，扩展点：setContext wysjson.lang 控制菜单显示
 - Webview 语言选择：Auto/English/中文，变更后通过 setLanguage 消息同步
 
 **章节来源**
@@ -330,7 +330,7 @@ RetOk2 --> End
 - [webview.js:418-438](file://media/webview.js#L418-L438)
 
 #### 配置项
-- JSONOKOK.supportedLanguages：控制右键菜单显示的语言集合
+- wysjson.supportedLanguages：控制右键菜单显示的语言集合
 
 **章节来源**
 - [package.json:52-66](file://package.json#L52-L66)
@@ -405,7 +405,7 @@ WV --> MODEL
 - [extension.ts:424-486](file://src/extension.ts#L424-L486)
 
 ## 结论
-JSONOKOK 提供了从 VS Code 编辑器中提取与可视化编辑 JS/TS 数据的完整链路，通过中间模型与严格的语法校验，确保可逆性与安全性。其消息协议清晰、扩展点明确，适合进一步增强（如撤销/重做、代码高亮、更多数据类型支持）。
+wysJSON 提供了从 VS Code 编辑器中提取与可视化编辑 JS/TS 数据的完整链路，通过中间模型与严格的语法校验，确保可逆性与安全性。其消息协议清晰、扩展点明确，适合进一步增强（如撤销/重做、代码高亮、更多数据类型支持）。
 
 ## 附录
 

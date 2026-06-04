@@ -94,7 +94,7 @@ participant User as "用户"
 participant VSCE as "VS Code 扩展"
 participant WV as "Webview 应用"
 participant Parser as "解析器模块"
-User->>VSCE : 触发命令"打开 JSONOKOK"
+User->>VSCE : 触发命令"打开 wysJSON"
 VSCE->>Parser : 提取选区/光标位置的JSON
 Parser-->>VSCE : 返回AST与中间模型
 VSCE->>VSCE : 创建Webview并注入HTML

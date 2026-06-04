@@ -1,9 +1,13 @@
 {
-  "name": "jsonok",
-  "displayName": "JSONOK",
+  "name": "jsonokok",
+  "displayName": "JSONOKOK",
   "description": "Visual editor for JSON and JavaScript data literals with the JSONOK table UI inside VS Code.",
-  "version": "0.1.0",
-  "publisher": "wys",
+  "version": "0.1.1",
+  "publisher": "meiok1",
+  "repository": {
+    "type": "git",
+    "url": "https://gitee.com/null_562_1801/wys-json.git"
+  },
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
@@ -23,6 +27,7 @@
     "dist/extension.js",
     "media/**",
     "indexMonaco.html",
+    "vscodeDemo.png",
     "src/help/jsonokok.html",
     "src/help/images/ac0fb55f1f8fa0117077e0460fb44492_md5.png",
     "src/help/images/8e90ce014b7efe2e09fa62bc1bebd832_md5.png",
@@ -101,11 +106,11 @@
   "main": "./dist/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -p ./ && esbuild src/extension.ts --bundle --platform=node --external:vscode --format=cjs --target=es2020 --outfile=dist/extension.js",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
     "test": "node ./out/test/runTest.js",
-    "package": "vsce package --allow-missing-repository"
+    "package": "vsce package --allow-missing-repository --baseContentUrl https://gitee.com/null_562_1801/wys-json/raw/main --baseImagesUrl https://gitee.com/null_562_1801/wys-json/raw/main"
   },
   "devDependencies": {
     "@babel/generator": "^7.23.0",
@@ -114,6 +119,7 @@
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.25.5",
     "typescript": "^5.3.0"
   },
   "dependencies": {

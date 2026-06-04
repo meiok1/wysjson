@@ -23,9 +23,9 @@
 
 ## 简介
 
-JSONOKOK 是一个 VS Code 扩展，提供 JavaScript JSON 数据字面量的嵌套表格编辑器。本文档专注于其 AST 到中间模型转换模块，详细解释如何将 Babel AST 节点转换为中间模型 JsonNode 的过程。
+wysJSON 是一个 VS Code 扩展，提供 JavaScript JSON 数据字面量的嵌套表格编辑器。本文档专注于其 AST 到中间模型转换模块，详细解释如何将 Babel AST 节点转换为中间模型 JsonNode 的过程。
 
-该转换模块是整个 JSONOKOK 系统的核心，负责：
+该转换模块是整个 wysJSON 系统的核心，负责：
 - 将 Babel AST 节点转换为可编辑的中间模型
 - 维护原始源代码信息以便后续写回
 - 处理各种 JavaScript 表达式类型
@@ -33,7 +33,7 @@ JSONOKOK 是一个 VS Code 扩展，提供 JavaScript JSON 数据字面量的嵌
 
 ## 项目结构概述
 
-JSONOKOK 项目采用模块化设计，主要包含以下关键目录和文件：
+wysJSON 项目采用模块化设计，主要包含以下关键目录和文件：
 
 ```mermaid
 graph TB
@@ -78,7 +78,7 @@ Model --> Messages
 
 ### JsonNode 数据结构设计
 
-JsonNode 是 JSONOKOK 的核心数据模型，设计用于表示可编辑的 JSON 值：
+JsonNode 是 wysJSON 的核心数据模型，设计用于表示可编辑的 JSON 值：
 
 ```mermaid
 classDiagram
@@ -135,7 +135,7 @@ JsonNode 的设计特点：
 
 ## 架构概览
 
-JSONOKOK 的 AST 到模型转换遵循以下架构模式：
+wysJSON 的 AST 到模型转换遵循以下架构模式：
 
 ```mermaid
 sequenceDiagram
@@ -332,7 +332,7 @@ ArrayResult --> |失败| ReturnError
 
 ## 依赖关系分析
 
-JSONOKOK 的 AST 到模型转换模块具有清晰的依赖关系：
+wysJSON 的 AST 到模型转换模块具有清晰的依赖关系：
 
 ```mermaid
 graph TB
@@ -429,7 +429,7 @@ ContinueProcessing --> ErrorEnd
 
 ## 结论
 
-JSONOKOK 的 AST 到模型转换模块展现了优秀的软件工程实践：
+wysJSON 的 AST 到模型转换模块展现了优秀的软件工程实践：
 
 1. **模块化设计**：清晰的职责分离和接口定义
 2. **类型安全**：通过 TypeScript 枚举和接口确保运行时安全
@@ -437,4 +437,4 @@ JSONOKOK 的 AST 到模型转换模块展现了优秀的软件工程实践：
 4. **性能优化**：高效的递归处理和错误恢复机制
 5. **用户体验**：无缝的 VS Code 集成和直观的编辑界面
 
-该模块为 JSONOKOK 提供了坚实的基础，使其能够处理复杂的 JavaScript JSON 数据结构，同时保持良好的性能和可靠性。
+该模块为 wysJSON 提供了坚实的基础，使其能够处理复杂的 JavaScript JSON 数据结构，同时保持良好的性能和可靠性。

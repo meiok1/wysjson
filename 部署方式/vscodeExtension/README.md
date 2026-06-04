@@ -1,6 +1,6 @@
 # JSONOKOK
 
-JSONOKOK（[www.jsonOKOK.com](http://www.jsonOKOK.com)） 是一个类 Excel 的 JSON 可视化编辑器，适合查看深层的 object / array 结构、快速定位节点，并在表格里直接编辑值和类型。 (JSONOKOK is an Excel-like JSON visual editor suitable for viewing deep object/array structures, quickly locating nodes, and directly editing values and types in a table.)
+JSONOKOK（www.jsonOKOK.com） 是一个类 Excel 的 JSON 可视化编辑器，适合查看深层的 object / array 结构、快速定位节点，并在表格里直接编辑值和类型。 (JSONOKOK is an Excel-like JSON visual editor suitable for viewing deep object/array structures, quickly locating nodes, and directly editing values and types in a table.)
 
 ![VSCODE plugin JSONOK](vscodeDemo.png)
 
@@ -36,4 +36,4 @@ JSONOKOK（[www.jsonOKOK.com](http://www.jsonOKOK.com)） 是一个类 Excel 的
 
 - 通过层级限制与“显示下一层”按需展开，减小渲染范围以提高大 JSON 的响应能力。 (Use depth limits and "show next level" to expand on demand, reducing rendering scope to improve responsiveness for large JSON files.)
 
-更多使用说明与截图见扩展内帮助页面：[www.jsonOKOK.com](http://www.jsonOKOK.com)。 (For more instructions and screenshots, see the extension help page: [www.jsonOKOK.com](http://www.jsonOKOK.com).)
+更多使用说明与截图见扩展内帮助页面：`[www.jsonOKOK.com](http://www.jsonOKOK.com)`。 (For more instructions and screenshots, see the extension help page: `[www.jsonOKOK.com](http://www.jsonOKOK.com)`.)

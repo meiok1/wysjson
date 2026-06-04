@@ -26,7 +26,7 @@
 10. [附录](#附录)
 
 ## 简介
-本文件面向 JSONOKOK 的核心 API 接口，系统性梳理 JsonNode 类型系统、SourceInfo 元数据结构、ExtractionResult 统一接口设计与实现、参数验证规则、默认值与边界条件处理，并提供数据结构图与类型定义说明。文档还包含实际使用场景与示例路径指引，以及向后兼容性与版本演进策略的说明，帮助开发者快速理解并正确使用该核心接口体系。
+本文件面向 wysJSON 的核心 API 接口，系统性梳理 JsonNode 类型系统、SourceInfo 元数据结构、ExtractionResult 统一接口设计与实现、参数验证规则、默认值与边界条件处理，并提供数据结构图与类型定义说明。文档还包含实际使用场景与示例路径指引，以及向后兼容性与版本演进策略的说明，帮助开发者快速理解并正确使用该核心接口体系。
 
 ## 项目结构
 本项目采用分层模块化组织：
@@ -153,7 +153,7 @@ VSCE-->>WEB : postMessage(success/error)
 ## 详细组件分析
 
 ### JsonNode 类型系统
-JsonNode 是 JSONOKOK 的中间数据模型，承载 JSON 原子类型与代码文本节点，支持表格 UI 的可视化与编辑。
+JsonNode 是 wysJSON 的中间数据模型，承载 JSON 原子类型与代码文本节点，支持表格 UI 的可视化与编辑。
 
 ```mermaid
 classDiagram
@@ -374,7 +374,7 @@ POPT --> PAR
 - [fromModel.ts:92-117](file://src/parser/fromModel.ts#L92-L117)
 
 ## 结论
-JSONOKOK 的核心 API 以 JsonNode 为中心，结合 SourceInfo 与 ExtractionResult，实现了从编辑器选区到表格 UI 的完整链路。通过严格的参数验证、默认值与边界条件处理，以及稳健的选择提取与代码生成机制，系统在保持易用性的同时兼顾了安全性与可维护性。未来版本演进应优先保证向后兼容与解析能力的持续增强。
+wysJSON 的核心 API 以 JsonNode 为中心，结合 SourceInfo 与 ExtractionResult，实现了从编辑器选区到表格 UI 的完整链路。通过严格的参数验证、默认值与边界条件处理，以及稳健的选择提取与代码生成机制，系统在保持易用性的同时兼顾了安全性与可维护性。未来版本演进应优先保证向后兼容与解析能力的持续增强。
 
 ## 附录
 
