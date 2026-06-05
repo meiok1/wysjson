@@ -6169,13 +6169,16 @@
                     this.finishEdit(this.editingCell);
                 }
 
-                // Shift+Click: expand selection to include rows between anchor and clicked row.
+                // Shift+Click 行号：扩展选区，从锚点行到当前点击行，跨越所有列。
+                // 【修复】之前使用 selRect / anchorCoords.colIndex 来计算列范围，
+                //  导致当锚点是单个单元格时（如先点了某个cell再shift点行号），
+                //  列范围只有锚点那一列，选区变成纵向一列而非整行范围。
+                //  行号是行级操作，shift+点击行号应该始终选择"锚点行→点击行"的全部列。
                 if (evt && evt.shiftKey && this.selectionAnchorCell) {
                     let anchorCoords = this.getCellCoordinates(this.selectionAnchorCell);
                     const table = tr.closest('table.json-table');
-                    console.log && console.log('WYSDEBUG selectRowByNumberCell anchorCoordsBefore', anchorCoords ? { tablePath: anchorCoords.table?.dataset?.path || '', rowIndex: anchorCoords.rowIndex, colIndex: anchorCoords.colIndex } : null);
 
-                    // If the anchor belongs to a different table (nested), try to normalize it into the clicked table
+                    // 如果锚点属于不同的表格（嵌套场景），尝试将其归一化到当前点击的表格
                     if (anchorCoords && anchorCoords.table !== table) {
                         try {
                             const anchorCell = this.selectionAnchorCell;
@@ -6198,41 +6201,36 @@
                                     const fcoords = this.getCellCoordinates(found);
                                     if (fcoords && fcoords.table === table) {
                                         anchorCoords = fcoords;
-                                        try { console.log('WYSDEBUG selectRowByNumberCell anchorNormalizedFromParentPath', { anchorParentPath, anchorColIndex: fcoords.colIndex, foundPath: found.dataset.path }); } catch (err) { }
                                     }
                                 }
                             }
-                        } catch (err) { console.log('WYSDEBUG selectRowByNumberCell anchorNormalizationError', err && err.message); }
+                        } catch (err) { /* 归一化失败，保持 anchorCoords 不变 */ }
                     }
 
                     const clickedRowIndex = Number(rowNumberCell.dataset.rowIndex);
-                    const selRect = this.getRangeRectFromCells(this.getSelectedCells());
-                    let colStart, colEnd;
-                    if (selRect && selRect.table === table) {
-                        colStart = selRect.colStart;
-                        colEnd = selRect.colEnd;
-                    } else if (anchorCoords && anchorCoords.table === table) {
-                        colStart = anchorCoords.colIndex;
-                        colEnd = anchorCoords.colIndex;
-                    } else {
-                        // Fallback: choose full row across all selectable columns
-                        colStart = 0;
-                        colEnd = rowCells.length - 1;
-                    }
 
+                    // 【核心修复】行号 shift-click 是行级操作，列范围始终覆盖整行所有可选列。
+                    // 之前错误地使用了 selRect（当前选区矩形）或 anchorCoords.colIndex（锚点列号）
+                    // 来决定列范围，导致：
+                    //  - 如果之前选的是整行 → selRect 覆盖所有列 → 结果正确（巧合）
+                    //  - 如果之前选的是单个cell → selRect 只有一列 → 选区变成纵向一列（bug）
+                    //  - 如果锚点cell在colIndex=0 → 选中第一列全部行（用户报告的"第一列全部选中"现象）
+                    // 修复后：不再依赖 selRect/anchorColIndex，直接用当前行的所有可选列。
+                    const totalCols = rowCells.length;
+                    const colStart = 0;
+                    const colEnd = totalCols - 1;
+
+                    // 行范围：从锚点行到点击行（自动处理正/反向）
                     const startRow = Math.min(anchorCoords?.rowIndex ?? clickedRowIndex, clickedRowIndex);
                     const endRow = Math.max(anchorCoords?.rowIndex ?? clickedRowIndex, clickedRowIndex);
                     const startCell = this.getCellByCoordinates(table, startRow, colStart);
                     const endCell = this.getCellByCoordinates(table, endRow, colEnd);
-                    try { console.log('WYSDEBUG selectRowByNumberCell compute', { tablePath: table?.dataset?.path || '', startRow, endRow, colStart, colEnd, startCellPath: startCell?.dataset?.path || null, endCellPath: endCell?.dataset?.path || null }); } catch (err) { }
                     if (startCell && endCell) {
                         this.selectRange(startCell, endCell);
                         this.clearHeaderRowHighlights();
                         const rowNumCell = tr.querySelector('td.row-num');
                         if (rowNumCell) rowNumCell.classList.add('row-highlight');
                         return;
-                    } else {
-                        console.log('WYSDEBUG selectRowByNumberCell failedToLocateRangeCells', { startRow, endRow, colStart, colEnd });
                     }
                 }
 
@@ -6530,6 +6528,7 @@
             },
 
             normalizeClipboardRows(text) {
+                // 恢复：统一换行符为 \n 后按 \n 分割
                 return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((row, index, rows) => row.length > 0 || index < rows.length - 1);
             },
 
