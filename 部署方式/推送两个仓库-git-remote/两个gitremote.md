@@ -8,5 +8,7 @@ origin  https://gitee.com/null_562_1801/wys-json.git (push)
 
 
  # 分别推送两个仓库
- git push origin main
+ ```js
+git push origin main
 git push github main
+ ```

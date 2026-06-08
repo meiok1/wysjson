@@ -70,6 +70,7 @@ interface OpenTarget {
   range: vscode.Range;
   rootModel: JsonNode;
   title: string;
+  isFallbackDefaultGrid?: boolean;
 }
 
 interface EditableTargetMatch {
@@ -234,11 +235,14 @@ class JsonOkPanel {
   }
 
   private postInit(): void {
+    const rootModel = this.target.isFallbackDefaultGrid
+      ? createDefaultGridModel()
+      : this.target.rootModel;
     this.panel.webview.postMessage({
       type: "init",
       language: vscode.env.language === "en" ? "en" : "zh-CN",
       userLangPref: "auto",
-      rootModel: this.target.rootModel,
+      rootModel,
     });
   }
 
@@ -313,10 +317,11 @@ class JsonOkPanel {
       `script-src ${webview.cspSource} 'unsafe-inline' 'unsafe-eval'`,
       `worker-src ${webview.cspSource} blob:`,
       `child-src ${webview.cspSource} blob:`,
+      `frame-src ${webview.cspSource} blob:`,
       `connect-src ${webview.cspSource} https: data: blob:`,
     ].join("; ");
 
-    const injectedHead = `<head>\n    <meta http-equiv="Content-Security-Policy" content="${csp}">\n    <base href="${baseHref}">`;
+    const injectedHead = `<head>\n    <meta http-equiv="Content-Security-Policy" content="${csp}">\n    <base href="${baseHref}">\n    <script>window.__JSONOK_VSCODE_WEBVIEW__ = true;</script>`;
     const bridgeScript = `<script>\n(function () {\n  const vscode = acquireVsCodeApi();\n\n  function installBridge() {\n    const app = window.App;\n    if (!app || app.__jsonOkVsCodeBridgeInstalled) {\n      return !!app;\n    }\n\n    app.__jsonOkVsCodeBridgeInstalled = true;\n    app.model = null;\n    app.modelNodeMap = {};\n    app.isVsCodeHost = true;\n\n    app.getModelNodeByPath = function (path) {\n      const key = path || '';\n      return this.modelNodeMap && Object.prototype.hasOwnProperty.call(this.modelNodeMap, key)\n        ? this.modelNodeMap[key]\n        : null;\n    };\n\n    app.buildModelNodeMap = function (node, path) {\n      if (!node) return;\n      this.modelNodeMap[path] = node;\n      if (node.kind === 'object' && node.children) {\n        for (const key of Object.keys(node.children)) {\n          const childPath = path ? path + '.' + key : key;\n          this.buildModelNodeMap(node.children[key], childPath);\n        }\n      } else if (node.kind === 'array' && Array.isArray(node.items)) {\n        for (let i = 0; i < node.items.length; i += 1) {\n          this.buildModelNodeMap(node.items[i], path + '[' + i + ']');\n        }\n      }\n    };\n\n    app.modelToData = function (node) {\n      if (!node) return null;\n      if (node.kind === 'object') {\n        const obj = {};\n        for (const key of Object.keys(node.children || {})) {\n          obj[key] = this.modelToData(node.children[key]);\n        }\n        return obj;\n      }\n      if (node.kind === 'array') {\n        return (node.items || []).map((item) => this.modelToData(item));\n      }\n      if (node.kind === 'string' || node.kind === 'codeText') {\n        return node.value == null ? '' : String(node.value);\n      }\n      if (node.kind === 'number') {\n        return typeof node.value === 'number' ? node.value : Number(node.value);\n      }\n      if (node.kind === 'boolean') {\n        return !!node.value;\n      }\n      return null;\n    };\n\n    app.createJsonNodeFromValue = function (value, preferredType) {\n      if (preferredType === 'codeText') {\n        const codeValue = value == null ? '' : String(value);\n        return { kind: 'codeText', value: codeValue, raw: codeValue, editable: true, writeMode: 'code', sourceKind: 'code' };\n      }\n      if (value === null || value === undefined) {\n        return { kind: 'null', value: null, raw: 'null', editable: true, writeMode: 'json' };\n      }\n      if (typeof value === 'boolean') {\n        return { kind: 'boolean', value: value, raw: String(value), editable: true, writeMode: 'json' };\n      }\n      if (typeof value === 'number') {\n        return { kind: 'number', value: value, raw: String(value), editable: true, writeMode: 'json' };\n      }\n      if (Array.isArray(value)) {\n        return { kind: 'array', items: value.map((item) => this.createJsonNodeFromValue(item)), editable: true, writeMode: 'json' };\n      }\n      if (typeof value === 'object') {\n        const children = {};\n        for (const key of Object.keys(value)) {\n          children[key] = this.createJsonNodeFromValue(value[key]);\n        }\n        return { kind: 'object', children: children, editable: true, writeMode: 'json' };\n      }\n      const stringValue = String(value);\n      return { kind: 'string', value: stringValue, raw: JSON.stringify(stringValue), editable: true, writeMode: 'json' };\n    };\n\n    app.rebuildModelFromData = function (data, path) {\n      const originalNode = this.getModelNodeByPath(path);\n      if (data === null || data === undefined) {\n        return { kind: 'null', value: null, raw: 'null', editable: true, writeMode: 'json' };\n      }\n      if (Array.isArray(data)) {\n        return { kind: 'array', items: data.map((item, index) => this.rebuildModelFromData(item, path + '[' + index + ']')), editable: true, writeMode: 'json' };\n      }\n      if (typeof data === 'object') {\n        const children = {};\n        for (const key of Object.keys(data)) {\n          const childPath = path ? path + '.' + key : key;\n          children[key] = this.rebuildModelFromData(data[key], childPath);\n        }\n        return { kind: 'object', children: children, editable: true, writeMode: 'json' };\n      }\n      if (originalNode && originalNode.kind === 'codeText') {\n        const nextValue = String(data);\n        return { kind: 'codeText', value: nextValue, raw: nextValue, editable: true, writeMode: 'code', sourceKind: originalNode.sourceKind || 'code' };\n      }\n      if (typeof data === 'boolean') {\n        return { kind: 'boolean', value: data, raw: String(data), editable: true, writeMode: 'json' };\n      }\n      if (typeof data === 'number') {\n        return { kind: 'number', value: data, raw: String(data), editable: true, writeMode: 'json' };\n      }\n      const nextString = String(data);\n      return { kind: 'string', value: nextString, raw: JSON.stringify(nextString), editable: true, writeMode: 'json' };\n    };\n\n    app.loadRootModel = function (rootModel, language) {\n      this.model = rootModel;\n      this.modelNodeMap = {};\n      this.buildModelNodeMap(rootModel, '');\n      this.data = this.modelToData(rootModel);\n      this.focusPath = '';\n      this.nestedStates = {};\n      this.columnStates = {};\n      if (language) {\n        this.currentLanguage = language;\n        document.documentElement.lang = language;\n      }\n      if (typeof this.setJsonInputValue === 'function') {\n        this.setJsonInputValue(JSON.stringify(this.data, null, 2), { focus: false });\n      }\n      if (typeof this.render === 'function') {\n        this.render();\n      }\n      if (typeof this.setStatus === 'function') {\n        const text = this.currentLanguage === 'zh-CN' ? '数据已加载，可编辑' : 'Data loaded, ready to edit';\n        this.setStatus(text);\n      }\n    };\n\n    const originalApplyTranslations = typeof app.applyTranslations === 'function' ? app.applyTranslations.bind(app) : null;\n    app.applyTranslations = function () {\n      if (originalApplyTranslations) {\n        originalApplyTranslations();\n      }\n      const isZh = this.currentLanguage === 'zh-CN';\n      const exportButton = document.getElementById('btnExport');\n      if (exportButton) {\n        exportButton.textContent = isZh ? '保存' : 'Save';\n        exportButton.title = isZh ? '写回编辑器' : 'Save back to editor';\n      }\n    };\n\n    app.downloadJSON = function () {\n      if (this.data === null && !this.model) {\n        return this.setStatus(this.currentLanguage === 'zh-CN' ? '没有数据' : 'No data', true);\n      }\n      const savedModel = this.rebuildModelFromData(this.data, '');\n      vscode.postMessage({ type: 'save', model: savedModel });\n      this.setStatus(this.currentLanguage === 'zh-CN' ? '正在保存...' : 'Saving...');\n    };\n\n    window.addEventListener('message', function (event) {\n      const message = event.data || {};\n      if (message.type === 'init') {\n        if (message.language) {\n          app.currentLanguage = message.language;\n          document.documentElement.lang = message.language;\n        }\n        app.applyTranslations();\n        app.loadRootModel(message.rootModel, message.language);\n      } else if (message.type === 'error') {\n        app.setStatus(message.message || (app.currentLanguage === 'zh-CN' ? '操作失败' : 'Operation failed'), true);\n      } else if (message.type === 'success') {\n        app.setStatus(message.message || (app.currentLanguage === 'zh-CN' ? '已保存' : 'Saved'));\n      }\n    });\n\n    document.addEventListener('keydown', function (event) {\n      if ((event.ctrlKey || event.metaKey) && String(event.key).toLowerCase() === 's') {\n        event.preventDefault();\n        app.downloadJSON();\n      }\n    }, true);\n\n    app.applyTranslations();\n    vscode.postMessage({ type: 'ready' });\n    return true;\n  }\n\n  function ensureBridge() {\n    if (!installBridge()) {\n      window.setTimeout(ensureBridge, 50);\n    }\n  }\n\n  ensureBridge();\n})();\n</script>`;
 
     const finalBridgeScript = bridgeScript
@@ -373,6 +378,7 @@ function extractLooseTextTarget(
           version: document.version,
           range: selectedRange,
           rootModel: jsonValueToModel(value),
+          isFallbackDefaultGrid: false,
           title: `JSONOK: ${document.fileName.split(/[/\\]/).pop() ?? document.fileName}`,
         };
       } catch {
@@ -399,6 +405,7 @@ function extractLooseTextTarget(
               document.positionAt(startOffset + selectedJsonRange.end),
             ),
             rootModel: parseLooseTextModel(selectedLiteralSource),
+            isFallbackDefaultGrid: false,
             title: `JSONOK: ${document.fileName.split(/[/\\]/).pop() ?? document.fileName}`,
           };
         }
@@ -423,6 +430,7 @@ function extractLooseTextTarget(
         document.positionAt(jsonRange.end),
       ),
       rootModel: parseLooseTextModel(literalSource),
+      isFallbackDefaultGrid: false,
       title: `JSONOK: ${document.fileName.split(/[/\\]/).pop() ?? document.fileName}`,
     };
   }
@@ -434,6 +442,7 @@ function extractLooseTextTarget(
     version: document.version,
     range: insertRange,
     rootModel: emptyObjectModel(),
+    isFallbackDefaultGrid: true,
     title: `JSONOK: ${document.fileName.split(/[/\\]/).pop() ?? document.fileName}`,
   };
 }
@@ -456,6 +465,7 @@ function extractJsonTarget(
     version: document.version,
     range,
     rootModel: jsonValueToModel(value),
+    isFallbackDefaultGrid: false,
     title: `JSONOK: ${document.fileName.split(/[/\\]/).pop() ?? document.fileName}`,
   };
 }
@@ -479,6 +489,7 @@ function extractJavaScriptTarget(
       version: document.version,
       range,
       rootModel: astNodeToModel(expression, source),
+      isFallbackDefaultGrid: false,
       title: `JSONOK: ${document.fileName.split(/[/\\]/).pop() ?? document.fileName}`,
     };
   }
@@ -515,7 +526,37 @@ function extractJavaScriptTarget(
     version: document.version,
     range,
     rootModel: astNodeToModel(match.node, source),
+    isFallbackDefaultGrid: false,
     title: `JSONOK: ${document.fileName.split(/[/\\]/).pop() ?? document.fileName}`,
+  };
+}
+
+function createDefaultGridModel(): JsonNode {
+  const keys = Array.from({ length: 10 }, (_, index) => `field${index + 1}`);
+  const rows = Array.from({ length: 10 }, () => {
+    const children: Record<string, JsonNode> = {};
+    for (const key of keys) {
+      children[key] = {
+        kind: "string",
+        value: "",
+        editable: true,
+        raw: JSON.stringify(""),
+        writeMode: "json",
+      };
+    }
+    return {
+      kind: "object" as const,
+      children,
+      editable: true,
+      writeMode: "json" as const,
+    };
+  });
+
+  return {
+    kind: "array",
+    items: rows,
+    editable: true,
+    writeMode: "json",
   };
 }
 

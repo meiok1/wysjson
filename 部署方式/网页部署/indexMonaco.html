@@ -267,6 +267,7 @@
         .main-content {
             display: flex;
             flex: 1;
+            align-items: stretch;
             overflow: hidden;
             background: #f5f5f5;
         }
@@ -386,6 +387,10 @@
             display: none;
         }
 
+        .main-content.input-maximized .mini-map {
+            display: none;
+        }
+
         .input-panel textarea {
             flex: 1;
             background: #ffffff;
@@ -448,6 +453,7 @@
         /* ===== Table View (Excel Grid Area) ===== */
         .table-view {
             flex: 1;
+            min-width: 0;
             overflow: auto;
             padding: 8px;
             background: #f5f5f5;
@@ -473,22 +479,37 @@
             width: max-content;
             min-width: 100%;
             min-height: 100%;
-            padding-right: 172px;
+            padding-right: 16px;
         }
 
         .mini-map {
-            position: fixed;
-            top: 12px;
-            right: 12px;
-            width: 156px;
-            max-height: calc(100vh - 24px);
+            position: relative;
+            flex: 0 0 var(--quick-jump-width, 280px);
+            width: var(--quick-jump-width, 280px);
+            min-width: 220px;
+            max-width: 48vw;
+            height: 100%;
             overflow: auto;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid #d6dbe3;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
-            border-radius: 6px;
-            z-index: 80;
+            background: rgba(255, 255, 255, 0.96);
+            border-left: 1px solid #d6dbe3;
+            box-shadow: -4px 0 14px rgba(0, 0, 0, 0.08);
+            border-radius: 0;
+            z-index: 20;
             padding: 8px;
+        }
+
+        .thumbnail-panel {
+            position: fixed;
+            top: 8px;
+            left: 8px;
+            width: var(--thumbnail-panel-width, 320px);
+            height: auto;
+            max-height: calc(100vh - 16px);
+            z-index: 30;
+        }
+
+        .thumbnail-panel.hidden {
+            display: none;
         }
 
         .mini-map-header {
@@ -499,13 +520,13 @@
             margin: -8px -8px 6px;
             padding: 8px 8px 6px;
             position: sticky;
-            top: -8px;
+            top: 0;
             z-index: 4;
             background: rgba(255, 255, 255, 0.96);
             border-bottom: 1px solid rgba(214, 219, 227, 0.85);
             -webkit-backdrop-filter: blur(6px);
             backdrop-filter: blur(6px);
-            cursor: move;
+            cursor: default;
             -webkit-user-select: none;
             user-select: none;
         }
@@ -571,7 +592,7 @@
             width: 10px;
             height: 100%;
             cursor: ew-resize;
-            z-index: 5;
+            z-index: 6;
         }
 
         .mini-map-resize-handle::after {
@@ -1776,8 +1797,8 @@
     <div class="toolbar">
         <span class="title">📋 JSONOKOK</span>
         <div class="toolbar-group primary-actions" aria-label="Primary actions">
-            <button id="btnToggleInput" class="toolbar-btn-main" title="Toggle JSON Input Panel">输入</button>
-            <button id="btnSendToInput" title="Send JSON to input panel">到输入</button>
+            <button id="btnToggleInput" title="Toggle JSON Input Panel">--&gt;表单</button>
+            <button id="btnSendToInput" title="Send JSON to input panel">文本&lt;--</button>
         </div>
         <div class="toolbar-group edit-actions" aria-label="Edit actions">
             <button id="btnFormat" title="Format JSON">格式化</button>
@@ -1810,7 +1831,7 @@
                     <option value="all">全部</option>
                 </select></label>
             <select id="languageSelect" class="language-select" title="Language">
-                <option value="auto">Auto</option>
+                <!-- <option value="auto">Auto</option> -->
                 <option value="en">English</option>
                 <option value="zh-CN">中文</option>
             </select>
@@ -1832,6 +1853,8 @@
             <div class="input-panel-header">
                 <span>JSON 输入</span>
                 <div class="panel-actions">
+                    <button id="btnSyncToInput" class="accent apply-btn" title="Send JSON to input panel"
+                        aria-label="Send JSON to input panel">←</button>
                     <button id="btnApply" class="accent apply-btn" title="Send JSON to table view"
                         aria-label="Send JSON to table view">→</button>
                     <button id="btnMaximizeInput" class="maximize-btn" title="最大化输入面板" aria-label="最大化输入面板">□</button>
@@ -1849,14 +1872,16 @@
         <!-- Table View -->
         <div class="table-view" id="tableView">
             <div class="editor-canvas" id="editorCanvas"></div>
-            <div class="mini-map thumbnail-panel hidden" id="thumbnailPanel"></div>
-            <div class="mini-map hidden" id="miniMap"></div>
             <div class="empty-state" id="emptyState">
                 <div class="icon">JSONOKOK</div>
                 <h3>JSONOKOK 表格编辑器</h3>
                 <p>点击 <strong>输入</strong> 粘贴数据，或点击 <strong>示例</strong> 加载示例</p>
             </div>
         </div>
+
+        <div class="mini-map hidden" id="miniMap"></div>
+
+        <div class="mini-map thumbnail-panel hidden" id="thumbnailPanel"></div>
     </div>
 
     <!-- Modals: Contact and Donate -->
@@ -2046,7 +2071,7 @@
                     focusBadge: 'Focusing',
                     thumbnailHint: 'Drag panel / drag viewport / click to locate / resize on left edge',
                     thumbnailOverviewLabel: 'Viewport',
-                    quickJumpHint: 'Drag panel / Ctrl+click to focus / resize on left edge',
+                    quickJumpHint: 'Resize on left edge / Ctrl+click to focus',
                     closePanel: 'Close panel',
                     quickJumpSearchPlaceholder: 'Search key / value / path',
                     quickJumpSearchAll: 'All',
@@ -2090,7 +2115,7 @@
                 'zh-CN': {
                     ready: '就绪',
                     title: 'JSONOKOK',
-                    toggleInput: '输入',
+                    toggleInput: '编辑器',
                     downloadJson: '下载 JSON',
                     sendToInput: '发送 JSON 到输入面板',
                     sendToView: '发送 JSON 到表格视图',
@@ -2151,7 +2176,7 @@
                     focusBadge: '聚焦中',
                     thumbnailHint: '拖动面板 / 拖动视区 / 点击定位 / 左侧拖边调整宽度',
                     thumbnailOverviewLabel: '视区',
-                    quickJumpHint: '拖动面板 / Ctrl+点击聚焦 / 左侧拖边调整宽度',
+                    quickJumpHint: '左侧拖边调整宽度 / Ctrl+点击聚焦',
                     closePanel: '关闭面板',
                     quickJumpSearchPlaceholder: '搜索 key / value / path',
                     quickJumpSearchAll: '全部',
@@ -2215,7 +2240,7 @@
                     if (btnToggleInput) btnToggleInput.textContent = t('toggleInput');
                     const btnSendToInput = document.getElementById('btnSendToInput');
                     if (btnSendToInput) {
-                        btnSendToInput.textContent = this.currentLanguage === 'zh-CN' ? '到输入' : 'To Input';
+                        btnSendToInput.textContent = this.currentLanguage === 'zh-CN' ? '文本<--' : 'Text<--';
                         btnSendToInput.title = t('sendToInput');
                     }
                     const btnFormat = document.getElementById('btnFormat');
@@ -2247,6 +2272,12 @@
                         btnApply.textContent = '→';
                         btnApply.title = t('applyToView');
                         btnApply.setAttribute('aria-label', t('applyToView'));
+                    }
+                    const btnSyncToInput = document.getElementById('btnSyncToInput');
+                    if (btnSyncToInput) {
+                        btnSyncToInput.textContent = '←';
+                        btnSyncToInput.title = t('sendToInput');
+                        btnSyncToInput.setAttribute('aria-label', t('sendToInput'));
                     }
                     const btnMaximizeInput = document.getElementById('btnMaximizeInput');
                     if (btnMaximizeInput) {
@@ -2323,7 +2354,31 @@
                 this.initMonacoEditor();
                 const loadedOpenAsJsonPayload = this.loadOpenAsJsonPayload();
                 this.applyEditorScale();
-                if (!loadedOpenAsJsonPayload) this.setStatus(this.getTranslation('ready'));
+                if (!loadedOpenAsJsonPayload) {
+                    this.loadDefaultInitialData();
+                    this.setStatus(this.getTranslation('ready'));
+                }
+            },
+
+            createDefaultInitialData() {
+                const keys = Array.from({ length: 10 }, (_, index) => `field${index + 1}`);
+                return Array.from({ length: 10 }, () => {
+                    const row = {};
+                    for (const key of keys) row[key] = '';
+                    return row;
+                });
+            },
+
+            loadDefaultInitialData() {
+                this.data = this.createDefaultInitialData();
+                this.focusPath = '';
+                this.nestedStates = {};
+                this.columnStates = {};
+                this.paginationStates = {};
+                this.inputPanelMode = 'normal';
+                this.setJsonInputValue(JSON.stringify(this.data, null, 2), { focus: false });
+                this.applyInputPanelLayout();
+                this.render();
             },
 
             loadOpenAsJsonPayload() {
@@ -2920,6 +2975,8 @@
                     document.getElementById('btnUndo').addEventListener('click', () => { commitActive(); this.undo(); });
                     document.getElementById('btnRedo').addEventListener('click', () => { commitActive(); this.redo(); });
                 }
+                const btnSyncToInput = document.getElementById('btnSyncToInput');
+                if (btnSyncToInput) btnSyncToInput.addEventListener('click', () => { commitActive(); this.sendToInputPanel(); });
                 document.getElementById('tableView').addEventListener('click', (e) => this.handleTableClickCapture(e), true);
                 document.getElementById('tableView').addEventListener('click', (e) => this.handleTableClick(e));
                 document.getElementById('tableView').addEventListener('dblclick', (e) => this.handleTableDoubleClick(e));
@@ -3515,6 +3572,119 @@
                     this.syncVisibleDepthSelect();
                 }
                 if (colStateKey) this.columnStates[colStateKey] = true;
+                for (const cellPath of this.getNestedColumnCellPaths(path, key)) {
+                    this.nestedStates[cellPath] = true;
+                }
+                this.saveUIState();
+                this.render();
+            },
+
+            getNestedColumnCellPaths(path, key) {
+                if (key === undefined) return [this.normalizePath(path)].filter(Boolean);
+                const tableValue = this.getValueAtPath(this.data, path || '');
+                const result = [];
+                if (Array.isArray(tableValue)) {
+                    tableValue.forEach((row, index) => {
+                        if (!row || typeof row !== 'object' || Array.isArray(row) || row[key] === undefined) return;
+                        const rowPath = path ? `${path}[${index}]` : `[${index}]`;
+                        result.push(`${rowPath}.${key}`);
+                    });
+                    return result;
+                }
+                if (tableValue && typeof tableValue === 'object' && !Array.isArray(tableValue) && tableValue[key] !== undefined) {
+                    result.push(path ? `${path}.${key}` : key);
+                }
+                return result;
+            },
+
+            revealNestedCellPath(path) {
+                const targetPath = this.normalizePath(path);
+                if (!targetPath) return;
+                if (!this.canExpandNestedPath(targetPath)) {
+                    this.visibleDepthLimit = Math.max(this.getPathDepth(targetPath) + 1, this.getVisibleDepthLimit());
+                    this.syncVisibleDepthSelect();
+                }
+                this.nestedStates[targetPath] = true;
+                this.saveUIState();
+                this.render();
+            },
+
+            expandNestedChildrenInColumn(path, key) {
+                const targetPath = key !== undefined ? (path ? `${path}.${key}` : key) : path;
+                const cellPaths = this.getNestedColumnCellPaths(path, key);
+                const targetEntries = cellPaths.map((cellPath) => ({ path: cellPath, value: this.getValueAtPath(this.data, cellPath) }))
+                    .filter((entry) => entry.value !== undefined);
+                if (targetEntries.length === 0) {
+                    const targetValue = this.getValueAtPath(this.data, targetPath);
+                    if (targetValue === undefined) return;
+                    targetEntries.push({ path: targetPath, value: targetValue });
+                }
+
+                const setNestedVisible = (childPath, childValue) => {
+                    if (childValue === null || childValue === undefined) return;
+                    if (typeof childValue !== 'object') return;
+                    if (!this.canExpandNestedPath(childPath)) {
+                        this.visibleDepthLimit = Math.max(this.getPathDepth(childPath) + 1, this.getVisibleDepthLimit());
+                        this.syncVisibleDepthSelect();
+                    }
+                    const childStateKey = this.getColumnStateKey(childPath);
+                    if (childStateKey) this.columnStates[childStateKey] = true;
+                };
+
+                const visitChildren = (nodePath, nodeValue) => {
+                    if (Array.isArray(nodeValue)) {
+                        nodeValue.forEach((item, index) => {
+                            const itemPath = `${nodePath}[${index}]`;
+                            if (item && typeof item === 'object') {
+                                for (const childKey of Object.keys(item)) {
+                                    const childValue = item[childKey];
+                                    setNestedVisible(`${itemPath}.${childKey}`, childValue);
+                                }
+                            }
+                        });
+                        return;
+                    }
+                    if (nodeValue && typeof nodeValue === 'object') {
+                        for (const childKey of Object.keys(nodeValue)) {
+                            const childValue = nodeValue[childKey];
+                            setNestedVisible(nodePath ? `${nodePath}.${childKey}` : childKey, childValue);
+                        }
+                    }
+                };
+
+                if (!this.canExpandNestedPath(targetPath)) {
+                    this.visibleDepthLimit = Math.max(this.getPathDepth(targetPath) + 1, this.getVisibleDepthLimit());
+                    this.syncVisibleDepthSelect();
+                }
+                const targetStateKey = this.getColumnStateKey(targetPath);
+                if (targetStateKey) this.columnStates[targetStateKey] = true;
+                for (const entry of targetEntries) {
+                    this.nestedStates[entry.path] = true;
+                    visitChildren(entry.path, entry.value);
+                }
+                this.saveUIState();
+                this.render();
+            },
+
+            collapseNestedColumn(path, key) {
+                const targetPath = key !== undefined ? (path ? `${path}.${key}` : key) : path;
+                if (!targetPath) return;
+                const prefixDot = `${targetPath}.`;
+                const prefixBracket = `${targetPath}[`;
+                for (const stateKey of Object.keys(this.columnStates)) {
+                    if (stateKey === targetPath || stateKey.startsWith(prefixDot) || stateKey.startsWith(prefixBracket)) {
+                        delete this.columnStates[stateKey];
+                    }
+                }
+                this.columnStates[targetPath] = false;
+                for (const stateKey of Object.keys(this.nestedStates)) {
+                    if (stateKey === targetPath || stateKey.startsWith(prefixDot) || stateKey.startsWith(prefixBracket)) {
+                        delete this.nestedStates[stateKey];
+                    }
+                }
+                for (const cellPath of this.getNestedColumnCellPaths(path, key)) {
+                    this.nestedStates[cellPath] = false;
+                }
                 this.saveUIState();
                 this.render();
             },
@@ -3876,18 +4046,16 @@
 
             updateThumbnailPosition() {
                 const panel = document.getElementById('thumbnailPanel');
-                const tableView = document.getElementById('tableView');
-                if (!panel || !tableView || panel.classList.contains('hidden')) return;
+                if (!panel || panel.classList.contains('hidden')) return;
                 panel.style.width = `${this.thumbnailWidth}px`;
-                const tableRect = tableView.getBoundingClientRect();
-                const defaultX = Math.max(8, tableRect.right - panel.offsetWidth - 12);
-                const defaultY = Math.max(8, tableRect.top + 12);
+                const defaultX = Math.max(8, window.innerWidth - panel.offsetWidth - 12);
+                const defaultY = 8;
                 const position = this.clampFloatingPanelPosition(
                     this.thumbnailCustomOffset?.x ?? defaultX,
                     this.thumbnailCustomOffset?.y ?? defaultY,
                     panel
                 );
-                if (this.thumbnailCustomOffset) this.thumbnailCustomOffset = position;
+                this.thumbnailCustomOffset = position;
                 panel.style.right = 'auto';
                 panel.style.left = `${position.x}px`;
                 panel.style.top = `${position.y}px`;
@@ -3895,21 +4063,14 @@
 
             updateMiniMapPosition() {
                 const miniMap = document.getElementById('miniMap');
-                const tableView = document.getElementById('tableView');
-                if (!miniMap || !tableView || miniMap.classList.contains('hidden')) return;
+                if (!miniMap || miniMap.classList.contains('hidden')) return;
                 miniMap.style.width = `${this.miniMapWidth}px`;
-                const tableRect = tableView.getBoundingClientRect();
-                const defaultX = Math.max(8, tableRect.right - miniMap.offsetWidth - 12);
-                const defaultY = Math.max(8, tableRect.top + 196);
-                const position = this.clampFloatingPanelPosition(
-                    this.miniMapCustomOffset?.x ?? defaultX,
-                    this.miniMapCustomOffset?.y ?? defaultY,
-                    miniMap
-                );
-                if (this.miniMapCustomOffset) this.miniMapCustomOffset = position;
-                miniMap.style.right = 'auto';
-                miniMap.style.left = `${position.x}px`;
-                miniMap.style.top = `${position.y}px`;
+                miniMap.style.flexBasis = `${this.miniMapWidth}px`;
+                miniMap.style.flexGrow = '0';
+                miniMap.style.flexShrink = '0';
+                miniMap.style.left = '';
+                miniMap.style.top = '';
+                miniMap.style.right = '';
             },
 
             clampFloatingPanelPosition(x, y, panel) {
@@ -4300,9 +4461,11 @@
                     const rect = panel.getBoundingClientRect();
                     this.thumbnailResizeDrag = {
                         startX: e.clientX,
+                        startY: e.clientY,
                         startWidth: this.thumbnailWidth,
                         startOffsetX: rect.left,
                         startOffsetY: rect.top,
+                        moved: false,
                     };
                     e.preventDefault();
                     e.stopPropagation();
@@ -4367,30 +4530,28 @@
                     e.stopPropagation();
                     return;
                 }
-                if (!e.target.closest('.mini-map-header')) return;
-                const rect = miniMap.getBoundingClientRect();
-                this.miniMapDrag = {
-                    offsetX: e.clientX - rect.left,
-                    offsetY: e.clientY - rect.top,
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    moved: false,
-                };
-                e.preventDefault();
+                e.stopPropagation();
             },
 
             handleThumbnailMouseMove(e) {
                 if (this.thumbnailResizeDrag) {
+                    if (!this.thumbnailResizeDrag.moved) {
+                        const deltaX = Math.abs(e.clientX - this.thumbnailResizeDrag.startX);
+                        const deltaY = Math.abs(e.clientY - this.thumbnailResizeDrag.startY);
+                        if (deltaX < 3 && deltaY < 3) {
+                            return;
+                        }
+                        this.thumbnailResizeDrag.moved = true;
+                    }
                     const maxWidth = Math.max(220, window.innerWidth - 16);
                     const nextWidth = Math.min(maxWidth, Math.max(220, this.thumbnailResizeDrag.startWidth - (e.clientX - this.thumbnailResizeDrag.startX)));
                     const rightEdge = this.thumbnailResizeDrag.startOffsetX + this.thumbnailResizeDrag.startWidth;
-                    this.thumbnailCustomOffset = this.clampFloatingPanelPosition(rightEdge - nextWidth, this.thumbnailResizeDrag.startOffsetY, {
-                        offsetWidth: nextWidth,
-                        offsetHeight: document.getElementById('thumbnailPanel')?.offsetHeight || 0,
-                    });
+                    const nextX = Math.min(Math.max(8, rightEdge - nextWidth), window.innerWidth - nextWidth - 8);
+                    const nextY = this.thumbnailCustomOffset?.y ?? this.thumbnailResizeDrag.startOffsetY;
+                    this.thumbnailCustomOffset = { x: nextX, y: nextY };
                     this.thumbnailWidth = nextWidth;
                     this.saveUIState();
-                    this.updateThumbnail();
+                    this.updateThumbnailPosition();
                     return;
                 }
                 if (this.thumbnailViewportDrag) {
@@ -4433,34 +4594,11 @@
                 if (this.miniMapResizeDrag) {
                     const maxWidth = Math.max(220, window.innerWidth - 16);
                     const nextWidth = Math.min(maxWidth, Math.max(220, this.miniMapResizeDrag.startWidth - (e.clientX - this.miniMapResizeDrag.startX)));
-                    const rightEdge = this.miniMapResizeDrag.startOffsetX + this.miniMapResizeDrag.startWidth;
-                    this.miniMapCustomOffset = this.clampFloatingPanelPosition(rightEdge - nextWidth, this.miniMapResizeDrag.startOffsetY, {
-                        offsetWidth: nextWidth,
-                        offsetHeight: document.getElementById('miniMap')?.offsetHeight || 0,
-                    });
                     this.miniMapWidth = nextWidth;
                     this.saveUIState();
-                    this.updateMiniMap();
+                    this.updateMiniMapPosition();
                     return;
                 }
-                if (!this.miniMapDrag) return;
-                const miniMap = document.getElementById('miniMap');
-                if (!miniMap) return;
-                if (!this.miniMapDrag.moved) {
-                    const deltaX = Math.abs(e.clientX - this.miniMapDrag.startX);
-                    const deltaY = Math.abs(e.clientY - this.miniMapDrag.startY);
-                    if (deltaX < 3 && deltaY < 3) {
-                        return;
-                    }
-                    this.miniMapDrag.moved = true;
-                }
-                this.miniMapCustomOffset = this.clampFloatingPanelPosition(
-                    e.clientX - this.miniMapDrag.offsetX,
-                    e.clientY - this.miniMapDrag.offsetY,
-                    miniMap
-                );
-                this.saveUIState();
-                this.updateMiniMapPosition();
             },
 
             handleThumbnailMouseUp() {
@@ -4490,7 +4628,6 @@
 
             handleMiniMapMouseUp() {
                 this.miniMapResizeDrag = null;
-                this.miniMapDrag = null;
             },
 
             getNodePathFromPoint(clientX, clientY) {
@@ -4851,18 +4988,22 @@
                         const isExpanded = this.columnStates[colStateKey] !== false && canExpandNested;
                         if (isExpanded) toggle.classList.add('expanded');
                         toggle.innerHTML = `<span class="arrow">▶</span><span class="summary">${isArray ? `[${sampleVal.length}]` : `{${Object.keys(sampleVal).length}}`}</span>`;
+                        toggle.title = isExpanded ? '点击收缩当前列' : '点击展开当前列';
                         toggle.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            this.columnStates[colStateKey] = this.columnStates[colStateKey] === false;
-                            this.render();
+                            if (this.columnStates[colStateKey] === false) {
+                                this.revealNestedPath(path || '', key);
+                            } else {
+                                this.collapseNestedColumn(path || '', key);
+                            }
                         });
                         th.appendChild(toggle);
                         if (!isExpanded) {
                             const hintBtn = this.createNestedHintButton({
-                                title: canExpandNested ? '当前列还有未展开的下级节点，点击展开' : '当前列因层级限制未完全显示，点击显示下一层',
+                                title: canExpandNested ? '展开当前列下所有第一层直属下级' : '当前列因层级限制未完全显示，点击显示下一层并批量展开直属下级',
                                 text: canExpandNested ? '+' : '层+',
                                 className: 'nested-hint-btn',
-                                onClick: () => this.revealNestedPath(path || '', key),
+                                onClick: () => this.expandNestedChildrenInColumn(path || '', key),
                             });
                             th.appendChild(hintBtn);
                         }
@@ -5039,6 +5180,17 @@
                     wrapper.appendChild(sideActions);
                     return wrapper;
                 } else {
+                    const leftContainer = document.createElement('div');
+                    leftContainer.style.display = 'inline-block';
+                    leftContainer.appendChild(tableContainer);
+
+                    const addRowBtn = document.createElement('button');
+                    addRowBtn.className = 'add-row-btn';
+                    addRowBtn.textContent = '+ 添加行';
+                    addRowBtn.title = '将当前对象转换为数组并新增一行';
+                    addRowBtn.addEventListener('click', () => this.addRowToObject(path));
+                    leftContainer.appendChild(addRowBtn);
+
                     const sideActions = document.createElement('div');
                     sideActions.className = 'table-side-actions';
                     const addColumnBtn = document.createElement('button');
@@ -5047,7 +5199,7 @@
                     addColumnBtn.title = '为当前对象添加列';
                     addColumnBtn.addEventListener('click', () => this.addColumn(path));
                     sideActions.appendChild(addColumnBtn);
-                    wrapper.appendChild(tableContainer);
+                    wrapper.appendChild(leftContainer);
                     wrapper.appendChild(sideActions);
                     return wrapper;
                 }
@@ -5387,6 +5539,17 @@
                     table.appendChild(tbody);
                     wrapper.appendChild(table);
 
+                    const leftContainer = document.createElement('div');
+                    leftContainer.style.display = 'inline-block';
+                    while (wrapper.firstChild) leftContainer.appendChild(wrapper.firstChild);
+
+                    const addRowBtn = document.createElement('button');
+                    addRowBtn.className = 'add-row-btn';
+                    addRowBtn.textContent = '+ 添加行';
+                    addRowBtn.title = '将当前对象转换为数组并新增一行';
+                    addRowBtn.addEventListener('click', () => this.addRowToObject(path));
+                    leftContainer.appendChild(addRowBtn);
+
                     const sideActions = document.createElement('div');
                     sideActions.className = 'table-side-actions';
                     const addColumnBtn = document.createElement('button');
@@ -5395,6 +5558,7 @@
                     addColumnBtn.title = '为当前空对象添加列';
                     addColumnBtn.addEventListener('click', () => this.addColumn(path));
                     sideActions.appendChild(addColumnBtn);
+                    wrapper.appendChild(leftContainer);
                     wrapper.appendChild(sideActions);
                 } else {
                     // Single primitive or empty object
@@ -5468,9 +5632,9 @@
                     // Nested object/array — controlled by column header toggle
                     td.setAttribute('data-editable', 'false');
                     td.classList.add('cell-nested');
-                    const collKey = this.getColumnStateKey(path);
+                    const cellStateKey = this.normalizePath(path);
                     const canExpandNested = this.canExpandNestedPath(path);
-                    const isExpanded = this.columnStates[collKey] !== false && canExpandNested;
+                    const isExpanded = this.nestedStates[cellStateKey] !== false && canExpandNested;
                     if (isExpanded) {
                         const nestedContainer = document.createElement('div');
                         nestedContainer.className = 'nested-content';
@@ -5498,7 +5662,7 @@
                                 title: hintTitle,
                                 text: hintText,
                                 className: 'nested-expand-hint',
-                                onClick: () => this.revealNestedPath(path),
+                                onClick: () => this.revealNestedCellPath(path),
                             });
                             preview.appendChild(hintButton);
                         }
@@ -5776,6 +5940,8 @@
                     if (existingInput && options.selectAll) this.selectHeaderText(existingInput);
                     return;
                 }
+
+                this.clearSelection();
 
                 const label = th.querySelector('.header-label');
                 const originalValue = th.dataset.headerKey || label?.textContent || '';
@@ -6169,13 +6335,16 @@
                     this.finishEdit(this.editingCell);
                 }
 
-                // Shift+Click: expand selection to include rows between anchor and clicked row.
+                // Shift+Click 行号：扩展选区，从锚点行到当前点击行，跨越所有列。
+                // 【修复】之前使用 selRect / anchorCoords.colIndex 来计算列范围，
+                //  导致当锚点是单个单元格时（如先点了某个cell再shift点行号），
+                //  列范围只有锚点那一列，选区变成纵向一列而非整行范围。
+                //  行号是行级操作，shift+点击行号应该始终选择"锚点行→点击行"的全部列。
                 if (evt && evt.shiftKey && this.selectionAnchorCell) {
                     let anchorCoords = this.getCellCoordinates(this.selectionAnchorCell);
                     const table = tr.closest('table.json-table');
-                    console.log && console.log('WYSDEBUG selectRowByNumberCell anchorCoordsBefore', anchorCoords ? { tablePath: anchorCoords.table?.dataset?.path || '', rowIndex: anchorCoords.rowIndex, colIndex: anchorCoords.colIndex } : null);
 
-                    // If the anchor belongs to a different table (nested), try to normalize it into the clicked table
+                    // 如果锚点属于不同的表格（嵌套场景），尝试将其归一化到当前点击的表格
                     if (anchorCoords && anchorCoords.table !== table) {
                         try {
                             const anchorCell = this.selectionAnchorCell;
@@ -6198,41 +6367,36 @@
                                     const fcoords = this.getCellCoordinates(found);
                                     if (fcoords && fcoords.table === table) {
                                         anchorCoords = fcoords;
-                                        try { console.log('WYSDEBUG selectRowByNumberCell anchorNormalizedFromParentPath', { anchorParentPath, anchorColIndex: fcoords.colIndex, foundPath: found.dataset.path }); } catch (err) { }
                                     }
                                 }
                             }
-                        } catch (err) { console.log('WYSDEBUG selectRowByNumberCell anchorNormalizationError', err && err.message); }
+                        } catch (err) { /* 归一化失败，保持 anchorCoords 不变 */ }
                     }
 
                     const clickedRowIndex = Number(rowNumberCell.dataset.rowIndex);
-                    const selRect = this.getRangeRectFromCells(this.getSelectedCells());
-                    let colStart, colEnd;
-                    if (selRect && selRect.table === table) {
-                        colStart = selRect.colStart;
-                        colEnd = selRect.colEnd;
-                    } else if (anchorCoords && anchorCoords.table === table) {
-                        colStart = anchorCoords.colIndex;
-                        colEnd = anchorCoords.colIndex;
-                    } else {
-                        // Fallback: choose full row across all selectable columns
-                        colStart = 0;
-                        colEnd = rowCells.length - 1;
-                    }
 
+                    // 【核心修复】行号 shift-click 是行级操作，列范围始终覆盖整行所有可选列。
+                    // 之前错误地使用了 selRect（当前选区矩形）或 anchorCoords.colIndex（锚点列号）
+                    // 来决定列范围，导致：
+                    //  - 如果之前选的是整行 → selRect 覆盖所有列 → 结果正确（巧合）
+                    //  - 如果之前选的是单个cell → selRect 只有一列 → 选区变成纵向一列（bug）
+                    //  - 如果锚点cell在colIndex=0 → 选中第一列全部行（用户报告的"第一列全部选中"现象）
+                    // 修复后：不再依赖 selRect/anchorColIndex，直接用当前行的所有可选列。
+                    const totalCols = rowCells.length;
+                    const colStart = 0;
+                    const colEnd = totalCols - 1;
+
+                    // 行范围：从锚点行到点击行（自动处理正/反向）
                     const startRow = Math.min(anchorCoords?.rowIndex ?? clickedRowIndex, clickedRowIndex);
                     const endRow = Math.max(anchorCoords?.rowIndex ?? clickedRowIndex, clickedRowIndex);
                     const startCell = this.getCellByCoordinates(table, startRow, colStart);
                     const endCell = this.getCellByCoordinates(table, endRow, colEnd);
-                    try { console.log('WYSDEBUG selectRowByNumberCell compute', { tablePath: table?.dataset?.path || '', startRow, endRow, colStart, colEnd, startCellPath: startCell?.dataset?.path || null, endCellPath: endCell?.dataset?.path || null }); } catch (err) { }
                     if (startCell && endCell) {
                         this.selectRange(startCell, endCell);
                         this.clearHeaderRowHighlights();
                         const rowNumCell = tr.querySelector('td.row-num');
                         if (rowNumCell) rowNumCell.classList.add('row-highlight');
                         return;
-                    } else {
-                        console.log('WYSDEBUG selectRowByNumberCell failedToLocateRangeCells', { startRow, endRow, colStart, colEnd });
                     }
                 }
 
@@ -6530,6 +6694,7 @@
             },
 
             normalizeClipboardRows(text) {
+                // 恢复：统一换行符为 \n 后按 \n 分割
                 return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter((row, index, rows) => row.length > 0 || index < rows.length - 1);
             },
 
@@ -6623,6 +6788,71 @@
                 };
             },
 
+            expandPasteTargetForMatrix(tablePath, tableValue, requiredRows, requiredCols) {
+                const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+                let nextValue = tableValue;
+                let changed = false;
+
+                if (isPlainObject(nextValue) && requiredRows > 1) {
+                    nextValue = [this.cloneJsonValue(nextValue)];
+                    this.setValueAtPath(this.data, tablePath || '', nextValue);
+                    changed = true;
+                }
+
+                if (!Array.isArray(nextValue)) {
+                    return { changed, tableValue: nextValue };
+                }
+
+                if (this.isMatrixArrayNode(nextValue)) {
+                    const currentCols = nextValue[0]?.length || 0;
+                    const targetCols = Math.max(currentCols, requiredCols);
+                    const fillValue = this.getMatrixCellDefaultValue(nextValue);
+
+                    if (targetCols > currentCols) {
+                        for (const row of nextValue) {
+                            while (row.length < targetCols) {
+                                row.push(this.cloneJsonValue(fillValue));
+                            }
+                        }
+                        changed = true;
+                    }
+
+                    const targetRows = Math.max(nextValue.length, requiredRows);
+                    while (nextValue.length < targetRows) {
+                        const newRow = Array.from({ length: targetCols || requiredCols }, () => this.cloneJsonValue(fillValue));
+                        nextValue.push(newRow);
+                        changed = true;
+                    }
+
+                    return { changed, tableValue: nextValue };
+                }
+
+                const currentRows = nextValue.length;
+                const currentKeys = this.getColumnKeys(nextValue);
+                const targetCols = Math.max(currentKeys.length, requiredCols);
+                if (targetCols > currentKeys.length) {
+                    const existingKeys = [...currentKeys];
+                    const rows = nextValue.filter((item) => isPlainObject(item));
+                    for (let i = currentKeys.length; i < targetCols; i++) {
+                        const newKey = this.getNextColumnNameFromKeys(existingKeys);
+                        existingKeys.push(newKey);
+                        for (const row of rows) {
+                            row[newKey] = this.nullAsString ? '' : null;
+                        }
+                        changed = true;
+                    }
+                }
+
+                const targetRows = Math.max(currentRows, requiredRows);
+                while (nextValue.length < targetRows) {
+                    const template = this.createArrayItemTemplate(nextValue);
+                    nextValue.push(this.cloneJsonValue(template));
+                    changed = true;
+                }
+
+                return { changed, tableValue: nextValue };
+            },
+
             applyMatrixToSelection(matrix, options = {}) {
                 const startCell = this.selectedCell;
                 if (!startCell || matrix.length === 0) return false;
@@ -6630,8 +6860,39 @@
                 const anchor = this.getCellCoordinates(startCell);
                 if (!anchor) return false;
 
+                const tablePath = anchor.table?.dataset?.path || '';
+                const tableValue = this.getValueAtPath(this.data, tablePath);
+                const selectionCells = this.getSelectedCells();
+                const selectionBounds = this.hasRangeSelection() ? this.getRangeRectFromCells(selectionCells) : null;
+                const selectionRect = selectionBounds || {
+                    table: anchor.table,
+                    rowStart: anchor.rowIndex,
+                    rowEnd: anchor.rowIndex,
+                    colStart: anchor.colIndex,
+                    colEnd: anchor.colIndex,
+                };
+                const isFillRange = matrix.length === 1 && matrix[0].length === 1 && this.hasRangeSelection();
+                const requiredRows = isFillRange ? Math.max(1, (selectionRect.rowEnd - selectionRect.rowStart + 1)) : matrix.length;
+                const requiredCols = isFillRange ? Math.max(1, (selectionRect.colEnd - selectionRect.colStart + 1)) : Math.max(...matrix.map((row) => row.length), 1);
+
+                this.pushUndo();
+                const expansion = this.expandPasteTargetForMatrix(tablePath, tableValue, requiredRows, requiredCols);
+                const targetValue = expansion.changed ? this.getValueAtPath(this.data, tablePath) : tableValue;
+
                 const updates = [];
-                const fillRange = matrix.length === 1 && matrix[0].length === 1 && this.hasRangeSelection();
+                const fillRange = isFillRange;
+
+                const getCellPathForTarget = (rowIndex, colIndex) => {
+                    if (Array.isArray(targetValue) && this.isMatrixArrayNode(targetValue)) {
+                        return `${tablePath}[${rowIndex}][${colIndex}]`;
+                    }
+
+                    const columnKeys = this.getColumnKeys(targetValue);
+                    const key = columnKeys[colIndex];
+                    if (key === undefined) return null;
+                    const rowPath = Array.isArray(targetValue) ? `${tablePath}[${rowIndex}]` : tablePath;
+                    return rowPath ? `${rowPath}.${key}` : key;
+                };
 
                 if (fillRange) {
                     const value = matrix[0][0];
@@ -6642,9 +6903,11 @@
                 } else {
                     for (let rowOffset = 0; rowOffset < matrix.length; rowOffset++) {
                         for (let colOffset = 0; colOffset < matrix[rowOffset].length; colOffset++) {
-                            const cell = this.getCellByCoordinates(anchor.table, anchor.rowIndex + rowOffset, anchor.colIndex + colOffset);
-                            if (!cell || !this.isEditableCell(cell)) continue;
-                            updates.push({ path: cell.dataset.path, raw: matrix[rowOffset][colOffset] });
+                            const targetRowIndex = selectionRect.rowStart + rowOffset;
+                            const targetColIndex = selectionRect.colStart + colOffset;
+                            const path = getCellPathForTarget(targetRowIndex, targetColIndex);
+                            if (!path) continue;
+                            updates.push({ path, raw: matrix[rowOffset][colOffset] });
                         }
                     }
                 }
@@ -6663,7 +6926,6 @@
 
                 const selectionState = options.selectionState || this.captureSelectionState();
 
-                this.pushUndo();
                 for (const update of parsedUpdates) {
                     this.setValueAtPath(this.data, update.path, update.value);
                 }
@@ -6871,12 +7133,17 @@
                 }
             },
 
-            createGrid3x3Node(value) {
-                const isPrimitive = value === null || (typeof value !== 'object' && typeof value !== 'function');
-                return Array.from({ length: 3 }, (_, rowIndex) => Array.from({ length: 3 }, (_, colIndex) => {
-                    if (rowIndex === 0 && colIndex === 0) return this.cloneJsonValue(value);
-                    return isPrimitive ? this.cloneJsonValue(value) : '';
-                }));
+            createGrid3x3Node(value, cols = 3, rows = 3) {
+                const safeCols = Math.max(1, Math.min(100, Math.floor(Number(cols) || 3)));
+                const safeRows = Math.max(1, Math.min(100, Math.floor(Number(rows) || 3)));
+                const columnKeys = Array.from({ length: safeCols }, (_, index) => `col${index + 1}`);
+                return Array.from({ length: safeRows }, () => {
+                    const row = {};
+                    for (const key of columnKeys) {
+                        row[key] = this.cloneJsonValue(value);
+                    }
+                    return row;
+                });
             },
 
             isMatrixArrayNode(value) {
@@ -6889,26 +7156,28 @@
                 return isPrimitive ? this.cloneJsonValue(sourceValue) : '';
             },
 
-            wrapNodeInGrid3x3(path, value) {
+            wrapNodeInGrid3x3(path, value, cols = 3, rows = 3) {
                 if (this.editingCell) this.finishEdit(this.editingCell);
                 const targetPath = this.normalizePath(path);
                 const currentValue = targetPath ? this.getValueAtPath(this.data, targetPath) : this.data;
                 if (currentValue === undefined) return this.setStatus(this.getTranslation('notFoundToFocus'), true);
 
                 this.pushUndo();
-                const wrapped = this.createGrid3x3Node(currentValue);
+                const wrapped = this.createGrid3x3Node(currentValue, cols, rows);
                 if (targetPath) {
                     this.setValueAtPath(this.data, targetPath, wrapped);
-                    this.pendingCellSelection = `${targetPath}[0][0]`;
+                    this.pendingCellSelection = this.getArrayItemFocusPath(targetPath, 0, wrapped[0]);
                 } else {
                     this.data = wrapped;
                     this.focusPath = '';
-                    this.pendingCellSelection = '[0][0]';
+                    this.pendingCellSelection = this.getArrayItemFocusPath('', 0, wrapped[0]);
                 }
                 this.nestedStates = {};
                 this.columnStates = {};
                 this.render();
-                this.setStatus('已包裹为 9 宫格 array');
+                const safeCols = Math.max(1, Math.min(100, Math.floor(Number(cols) || 3)));
+                const safeRows = Math.max(1, Math.min(100, Math.floor(Number(rows) || 3)));
+                this.setStatus(`已包裹为 ${safeCols} 列 × ${safeRows} 行 object-array`);
             },
 
             getArrayItemFocusPath(arrayPath, index, itemValue) {
@@ -6979,6 +7248,29 @@
                 this.ensurePaginationIncludesIndex(arrayPath || '', arr.length - 1, arr.length);
                 this.pendingCellSelection = this.getArrayItemFocusPath(arrayPath, arr.length - 1, newItem);
                 this.nestedStates = {}; // reset collapse states
+                this.render();
+                this.setStatus(this.getTranslation('addedNewRow'));
+            },
+
+            addRowToObject(objectPath) {
+                if (this.editingCell) this.finishEdit(this.editingCell);
+                if (this.editingHeader) this.finishHeaderEdit(true);
+
+                const target = this.getValueAtPath(this.data, objectPath);
+                if (!target || typeof target !== 'object' || Array.isArray(target)) {
+                    return this.setStatus(this.getTranslation('currentNodeNotObjectCannotAddColumn'), true);
+                }
+
+                this.pushUndo();
+
+                const firstRow = this.cloneJsonValue(target);
+                const templateRows = [firstRow];
+                const newRow = this.createArrayItemTemplate(templateRows);
+                const nextArray = [firstRow, newRow];
+
+                this.setValueAtPath(this.data, objectPath || '', nextArray);
+                this.pendingCellSelection = this.getArrayItemFocusPath(objectPath || '', 1, newRow);
+                this.nestedStates = {};
                 this.render();
                 this.setStatus(this.getTranslation('addedNewRow'));
             },
@@ -7944,6 +8236,17 @@
                     return;
                 }
 
+                if (this.editingCell === cell) {
+                    const editingSpan = cell.querySelector('.cell-value');
+                    if (editingSpan) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        editingSpan.focus({ preventScroll: true });
+                        this.placeCaretFromPoint(editingSpan, e.clientX, e.clientY);
+                        return;
+                    }
+                }
+
                 if (this.editingCell && this.editingCell !== cell && !this.editingCell.contains(e.target)) {
                     this.finishEdit(this.editingCell);
                 }
@@ -7979,6 +8282,7 @@
             },
 
             handlePaste(e) {
+                if (this.editingHeader && e.target?.closest?.('.header-editor')) return;
                 if (this.editingCell) this.finishEdit(this.editingCell);
                 if (!this.selectedCell) return;
                 const text = e.clipboardData?.getData('text/plain');
@@ -8028,12 +8332,33 @@
                 const state = this.contextMenuState;
                 this.hideContextMenu();
 
-                // Global handler for X9 wrap action (corner or single node)
+                // Global handler for configurable grid wrap action (corner or single node)
+                if (action === 'wrap-grid-confirm') {
+                    const menu = document.getElementById('contextMenu');
+                    const readGridCount = (role, fallback) => {
+                        const input = menu?.querySelector(`.menu-insert-count[data-for="wrap-grid"][data-role="${role}"]`);
+                        let count = fallback;
+                        if (input) {
+                            count = Math.floor(Number(input.value) || fallback);
+                            if (!Number.isFinite(count) || count < 1) count = fallback;
+                            count = Math.min(count, 100);
+                        }
+                        return count;
+                    };
+                    const cols = readGridCount('cols', 3);
+                    const rows = readGridCount('rows', 3);
+                    if (state?.type === 'corner') {
+                        this.wrapNodeInGrid3x3('', this.data, cols, rows);
+                    } else {
+                        this.wrapNodeInGrid3x3(state?.path || '', state?.value, cols, rows);
+                    }
+                    return;
+                }
                 if (action === 'wrap-grid-3x3') {
                     if (state?.type === 'corner') {
-                        this.wrapNodeInGrid3x3('', this.data);
+                        this.wrapNodeInGrid3x3('', this.data, 3, 3);
                     } else {
-                        this.wrapNodeInGrid3x3(state?.path || '', state?.value);
+                        this.wrapNodeInGrid3x3(state?.path || '', state?.value, 3, 3);
                     }
                     return;
                 }
@@ -8494,7 +8819,12 @@
                     if (state?.path !== undefined && state?.path !== null) {
                         extraActions += `
                     <div class="divider"></div>
-                    <div class="menu-item" data-action="wrap-grid-3x3">X 9</div>
+                    <div class="menu-item" data-action="wrap-grid-confirm">
+                        <span class="menu-label">X</span>
+                        <input type="text" class="menu-insert-count" data-for="wrap-grid" data-role="cols" value="3" inputmode="numeric" pattern="[0-9]*" autocomplete="off" style="width:64px;margin-left:8px" />
+                        <span class="menu-label">×</span>
+                        <input type="text" class="menu-insert-count" data-for="wrap-grid" data-role="rows" value="3" inputmode="numeric" pattern="[0-9]*" autocomplete="off" style="width:64px;margin-left:8px" />
+                    </div>
                 `;
                     }
                     if (this.canOpenAsJson(state?.value)) {
@@ -8574,7 +8904,12 @@
                 ${cornerTypeActions}
                 ${cornerJsonActions.trim() ? `<div class="divider"></div>${cornerJsonActions}` : ''}
                 <div class="divider"></div>
-                <div class="menu-item" data-action="wrap-grid-3x3">X 9</div>
+                <div class="menu-item" data-action="wrap-grid-confirm">
+                    <span class="menu-label">X</span>
+                    <input type="text" class="menu-insert-count" data-for="wrap-grid" data-role="cols" value="3" inputmode="numeric" pattern="[0-9]*" autocomplete="off" style="width:64px;margin-left:8px" />
+                    <span class="menu-label">×</span>
+                    <input type="text" class="menu-insert-count" data-for="wrap-grid" data-role="rows" value="3" inputmode="numeric" pattern="[0-9]*" autocomplete="off" style="width:64px;margin-left:8px" />
+                </div>
                 <div class="divider"></div>
                 <div class="menu-item" data-action="clear-selection">${this.getTranslation('clearSelectionNodes')}</div>
             `;
@@ -8635,6 +8970,11 @@
                             }
                         });
                     });
+                    const gridColsInput = menu.querySelector('.menu-insert-count[data-for="wrap-grid"][data-role="cols"]');
+                    if (gridColsInput) {
+                        gridColsInput.focus();
+                        gridColsInput.select();
+                    }
                 } catch (err) { /* ignore */ }
             },
 
@@ -8705,13 +9045,12 @@
             const donateModal = document.getElementById('donateModal');
 
             if (helpBtn) helpBtn.addEventListener('click', function () {
-                // Open help page in a new window/tab using a relative path
+                const helpUrl = 'http://www.jsonokok.com/src/help/jsonokok.html';
                 try {
-                    window.open('./src/help/jsonokok.html', '_blank');
+                    window.open(helpUrl, '_blank');
                 } catch (e) {
-                    // fallback: set location on a newly opened window
                     const w = window.open('', '_blank');
-                    if (w) w.location = './src/help/jsonokok.html';
+                    if (w) w.location = helpUrl;
                 }
             });
             if (contactBtn) contactBtn.addEventListener('click', function () { showModal(contactModal); });

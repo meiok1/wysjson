@@ -28,5 +28,8 @@
   "[markdown]": {
     "editor.wordWrap": "on"
   },
-  "i18n-ally.localesPaths": []
+  "i18n-ally.localesPaths": [],
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  }
 }
